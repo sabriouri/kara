@@ -1,0 +1,127 @@
+<div class="app-shell" [class.collapsed]="collapsed()">
+  <aside class="sidebar" [style.--pole-color]="activePole().color">
+    <!-- Logo -->
+    <div class="sidebar-logo">
+      @if (!collapsed()) {
+        <div class="logo-brand">
+          <img src="/assets/logo-k.png" alt="KARA" class="logo-img-full" />
+          <div class="logo-texts">
+            <span class="logo-kara">KΛRΛ</span>
+            <span class="logo-dignite">DIGNITÉ INTERNATIONAL</span>
+          </div>
+        </div>
+      } @else {
+        <img src="/assets/logo-k.png" alt="KARA" class="logo-img-small" />
+      }
+      <button
+        class="collapse-btn"
+        (click)="toggleSidebar()"
+        [title]="collapsed() ? 'Ouvrir la sidebar' : 'Réduire la sidebar'"
+      >
+        <lucide-icon
+          [name]="collapsed() ? 'panel-left-open' : 'panel-left-close'"
+          [size]="16"
+        ></lucide-icon>
+      </button>
+    </div>
+
+    <!-- Sélecteur pôles -->
+    <div class="pole-selector">
+      @for (pole of poles; track pole.id) {
+        <button
+          class="pole-btn"
+          [class.active]="activePoleId() === pole.id"
+          [style.--color]="pole.color"
+          [title]="pole.label"
+          (click)="setPole(pole.id)"
+        >
+          <lucide-icon [name]="pole.icon" [size]="17"></lucide-icon>
+        </button>
+      }
+    </div>
+
+    @if (!collapsed()) {
+      <div class="pole-label">{{ activePole().label }}</div>
+    }
+
+    <!-- Navigation -->
+    <nav class="sidebar-nav">
+      <a class="nav-item" routerLink="/dashboard" routerLinkActive="active">
+        <lucide-icon name="layout-dashboard" [size]="16" class="nav-icon"></lucide-icon>
+        @if (!collapsed()) {
+          <span>Dashboard</span>
+        }
+      </a>
+
+      @for (item of activePole().nav; track item.label + $index) {
+        @if (item.separator) {
+          <div class="nav-separator"></div>
+        } @else if (item.children) {
+          <div class="nav-group">
+            <button class="nav-item nav-group-btn" (click)="toggleMenu(item.label)">
+              <lucide-icon [name]="item.icon" [size]="16" class="nav-icon"></lucide-icon>
+              @if (!collapsed()) {
+                <span>{{ item.label }}</span>
+                <lucide-icon
+                  name="chevron-down"
+                  [size]="13"
+                  class="chevron"
+                  [class.open]="isMenuOpen(item.label)"
+                ></lucide-icon>
+              }
+            </button>
+            @if (isMenuOpen(item.label) && !collapsed()) {
+              <div class="nav-children">
+                @for (child of item.children; track child.label) {
+                  <a class="nav-child" [routerLink]="child.route" routerLinkActive="active">
+                    <lucide-icon [name]="child.icon" [size]="13"></lucide-icon>
+                    <span>{{ child.label }}</span>
+                  </a>
+                }
+              </div>
+            }
+          </div>
+        } @else {
+          <a class="nav-item" [routerLink]="item.route" routerLinkActive="active">
+            <lucide-icon [name]="item.icon" [size]="16" class="nav-icon"></lucide-icon>
+            @if (!collapsed()) {
+              <span>{{ item.label }}</span>
+            }
+          </a>
+        }
+      }
+    </nav>
+
+    <!-- Footer -->
+    <div class="sidebar-footer">
+      @if (!collapsed()) {
+        <div class="user-info">
+          <div class="user-avatar">
+            {{ auth.user()?.firstName?.charAt(0) }}{{ auth.user()?.lastName?.charAt(0) }}
+          </div>
+          <div class="user-details">
+            <span class="user-name">{{ auth.user()?.firstName }} {{ auth.user()?.lastName }}</span>
+            <span class="user-role">{{ auth.user()?.role?.name }}</span>
+          </div>
+        </div>
+      }
+      <button class="logout-btn" (click)="auth.logout()" title="Déconnexion">
+        <lucide-icon name="log-out" [size]="16"></lucide-icon>
+      </button>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <!-- Mobile topbar -->
+    <div class="mobile-topbar">
+      <button class="mobile-menu-btn" (click)="toggleSidebar()" title="Menu">
+        <lucide-icon name="menu" [size]="20"></lucide-icon>
+      </button>
+      <span class="mobile-app-name">KΛRΛ</span>
+      <div class="mobile-topbar-right">
+        <span class="mobile-user">{{ auth.user()?.firstName?.charAt(0) }}{{ auth.user()?.lastName?.charAt(0) }}</span>
+      </div>
+    </div>
+    <router-outlet />
+  </main>
+</div>

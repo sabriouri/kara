@@ -1,0 +1,169 @@
+<div class="page-content">
+
+  <!-- En-tête -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Virements bancaires</h1>
+      <p class="text-muted">Import et rapprochement des virements SEPA</p>
+    </div>
+    <button class="btn btn-primary" (click)="validerSelection()" [disabled]="loading()">
+      <span *ngIf="loading()" class="btn-spinner"></span>
+      Valider la sélection
+    </button>
+  </div>
+
+  <!-- Stats rapides -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Total virements</div>
+      <div class="stat-value">{{ virements().length }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Montant total</div>
+      <div class="stat-value">{{ totalAmount() | currency:'EUR':'symbol':'1.0-0' }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Validés</div>
+      <div class="stat-value stat-green">{{ validatedCount() }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">En attente</div>
+      <div class="stat-value stat-blue">{{ virements().length - validatedCount() }}</div>
+    </div>
+  </div>
+
+  <!-- Zone d'import -->
+  <div class="upload-section">
+    <div
+      class="upload-zone"
+      [class.dragging]="isDragging()"
+      [class.has-file]="selectedFile()"
+      (dragover)="onDragOver($event)"
+      (dragleave)="onDragLeave()"
+      (drop)="onDrop($event)"
+    >
+      <div class="upload-icon">
+        <lucide-icon name="upload-cloud" [size]="40" [strokeWidth]="1.5"></lucide-icon>
+      </div>
+
+      @if (selectedFile()) {
+        <div class="file-selected">
+          <lucide-icon name="file-spreadsheet" [size]="18"></lucide-icon>
+          <span class="file-name">{{ selectedFile()!.name }}</span>
+          <span class="file-size">{{ (selectedFile()!.size / 1024).toFixed(1) }} Ko</span>
+        </div>
+        <button class="btn btn-primary" (click)="traiter()">Traiter le fichier</button>
+        <button class="btn btn-secondary btn-sm" (click)="selectedFile.set(null)">Annuler</button>
+      } @else {
+        <p class="upload-title">Glissez-déposez votre fichier ici</p>
+        <p class="upload-sub">ou cliquez pour parcourir</p>
+        <label class="btn btn-secondary" style="cursor:pointer;">
+          <lucide-icon name="folder-open" [size]="15"></lucide-icon>
+          Choisir un fichier
+          <input type="file" accept=".xlsx,.xls,.csv" (change)="onFileChange($event)" style="display:none;" />
+        </label>
+        <p class="upload-hint">Excel (.xlsx, .xls) ou CSV acceptés</p>
+      }
+    </div>
+  </div>
+
+  <!-- Filtres -->
+  <div class="filters">
+    <div class="filter-label">Filtrer par statut :</div>
+    <select class="filter-select" [value]="statusFilter()" (change)="statusFilter.set($any($event.target).value)">
+      @for (opt of statusOptions; track opt.value) {
+        <option [value]="opt.value">{{ opt.label }}</option>
+      }
+    </select>
+    <span class="results-count">{{ filtered().length }} virement(s)</span>
+  </div>
+
+  <!-- Tableau -->
+  @if (loading()) {
+    <div class="loading-wrapper"><div class="spinner"></div></div>
+  } @else if (filtered().length === 0) {
+    <div class="empty-state">
+      <lucide-icon name="inbox" [size]="52" [strokeWidth]="1.2" class="empty-icon"></lucide-icon>
+      <p class="empty-title">Aucun virement à afficher</p>
+      <p class="empty-sub">Importez un fichier Excel ou CSV pour commencer le rapprochement.</p>
+    </div>
+  } @else {
+    <div class="table-wrap">
+      <table class="vir-table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th>Montant</th>
+            <th>Date</th>
+            <th>Nom extrait</th>
+            <th>Campagne</th>
+            <th>Contact matché</th>
+            <th>Statut</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (v of filtered(); track v.id) {
+            <tr class="vir-row" [class.row-validated]="v.status === 'VALIDATED'" [class.row-skipped]="v.status === 'SKIPPED'">
+              <td class="td-desc">
+                <span class="desc-code">{{ v.description }}</span>
+              </td>
+              <td class="td-amount">
+                {{ v.amount | currency:'EUR':'symbol':'1.0-0' }}
+              </td>
+              <td class="td-date">{{ v.date | date:'dd/MM/yyyy' }}</td>
+              <td class="td-name">
+                <input
+                  type="text"
+                  class="name-input"
+                  [value]="v.nameInput ?? v.extractedName"
+                  (input)="updateName(v, $any($event.target).value)"
+                  [disabled]="v.status === 'VALIDATED' || v.status === 'SKIPPED'"
+                />
+              </td>
+              <td class="td-campaign">
+                <select
+                  class="campaign-select"
+                  [value]="v.selectedCampaign ?? v.suggestedCampaign"
+                  (change)="updateCampaign(v, $any($event.target).value)"
+                  [disabled]="v.status === 'VALIDATED' || v.status === 'SKIPPED'"
+                >
+                  <option value="">-- Campagne --</option>
+                  @for (src of paymentSources(); track src.id) {
+                    <option [value]="src.name">{{ src.name }}</option>
+                  }
+                  <option [value]="v.suggestedCampaign">{{ v.suggestedCampaign }}</option>
+                </select>
+              </td>
+              <td class="td-contact">
+                @if (v.matchedContact) {
+                  <div class="contact-chip">
+                    <div class="contact-avatar">{{ v.matchedContact.firstName[0] }}{{ v.matchedContact.lastName[0] }}</div>
+                    <div class="contact-info">
+                      <span class="contact-name">{{ v.matchedContact.firstName }} {{ v.matchedContact.lastName }}</span>
+                      <span class="contact-email">{{ v.matchedContact.email }}</span>
+                    </div>
+                  </div>
+                } @else {
+                  <span class="no-contact">–</span>
+                }
+              </td>
+              <td class="td-status">
+                <span [class]="'badge ' + statusClass(v.status)">{{ statusLabel(v.status) }}</span>
+              </td>
+              <td class="td-actions">
+                @if (v.status !== 'VALIDATED' && v.status !== 'SKIPPED') {
+                  <button class="btn btn-secondary btn-sm" (click)="skipVirement(v)" title="Ignorer">
+                    <lucide-icon name="x" [size]="13"></lucide-icon>
+                    Ignorer
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+</div>

@@ -1,0 +1,354 @@
+<div class="page-content">
+
+  <!-- Loading -->
+  @if (loading()) {
+    <div class="loading-wrapper"><div class="spinner"></div></div>
+  } @else if (notFound() || !ticket()) {
+    <div class="not-found">
+      <p>Ticket introuvable.</p>
+      <a class="btn btn-secondary" routerLink="/tickets">← Retour aux tickets</a>
+    </div>
+  } @else {
+    <div class="detail-layout">
+
+      <!-- ══════════════════════════════════════════════════════════════════
+           Left column: main content
+           ══════════════════════════════════════════════════════════════════ -->
+      <div class="detail-main">
+
+        <!-- Back link -->
+        <div class="back-row">
+          <a class="back-link" routerLink="/tickets">
+            <lucide-icon name="chevron-left" [size]="16"></lucide-icon>
+            Tickets
+          </a>
+          <code class="tc-code">{{ ticket()!.code }}</code>
+        </div>
+
+        <!-- Header card -->
+        <div class="header-card">
+          <div class="header-card-top">
+            <div class="header-category">
+              <span class="category-icon">
+                <lucide-icon [name]="getCategoryIcon(ticket()!.category)" [size]="15"></lucide-icon>
+              </span>
+              <span class="category-label">{{ getCategoryLabel(ticket()!.category) }}</span>
+            </div>
+            <div class="header-actions">
+              <button class="btn btn-secondary btn-sm" (click)="openEditModal()">
+                <lucide-icon name="pencil" [size]="13"></lucide-icon>
+                Modifier
+              </button>
+              <button class="btn btn-danger btn-sm" (click)="deleteConfirm.set(true)">
+                <lucide-icon name="trash-2" [size]="13"></lucide-icon>
+                Supprimer
+              </button>
+            </div>
+          </div>
+          <h1 class="ticket-title">{{ ticket()!.title }}</h1>
+        </div>
+
+        <!-- Description -->
+        @if (ticket()!.description) {
+          <div class="detail-section">
+            <h3 class="section-title">Description</h3>
+            <p class="description-text">{{ ticket()!.description }}</p>
+          </div>
+        }
+
+        <!-- Comments -->
+        <div class="detail-section">
+          <h3 class="section-title">
+            Commentaires
+            @if (ticket()!.comments.length) {
+              <span class="comment-count">{{ ticket()!.comments.length }}</span>
+            }
+          </h3>
+
+          <!-- Comments list -->
+          @if (!ticket()!.comments.length) {
+            <p class="no-comments">Aucun commentaire pour l'instant.</p>
+          } @else {
+            <div class="comments-list">
+              @for (c of ticket()!.comments; track c.id) {
+                <div class="comment-item" [class.comment-internal]="c.isInternal">
+                  <div class="comment-avatar">{{ getInitials(c.author) }}</div>
+                  <div class="comment-body">
+                    <div class="comment-meta">
+                      <span class="comment-author">{{ getUserName(c.author) }}</span>
+                      @if (c.isInternal) {
+                        <span class="internal-badge">INTERNE</span>
+                      }
+                      <span class="comment-date">{{ formatDate(c.createdAt) }}</span>
+                    </div>
+                    <p class="comment-content">{{ c.content }}</p>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+
+          <!-- Add comment form -->
+          <div class="add-comment">
+            <textarea
+              class="comment-input"
+              rows="3"
+              placeholder="Ajouter un commentaire…"
+              [ngModel]="newComment()"
+              (ngModelChange)="newComment.set($event)"
+            ></textarea>
+            <div class="comment-form-footer">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  [ngModel]="isInternal()"
+                  (ngModelChange)="isInternal.set($event)"
+                />
+                <span>Commentaire interne</span>
+              </label>
+              <button
+                class="btn btn-primary btn-sm"
+                (click)="submitComment()"
+                [disabled]="commentLoading() || !newComment().trim()"
+              >
+                @if (commentLoading()) { <span class="btn-spinner"></span> }
+                Ajouter
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════
+           Right sidebar
+           ══════════════════════════════════════════════════════════════════ -->
+      <aside class="detail-aside">
+
+        <!-- Status quick actions -->
+        <div class="aside-card aside-actions">
+          <h3 class="aside-title">Changer le statut</h3>
+          <div class="status-actions">
+
+            <button
+              class="status-btn"
+              [class.active]="ticket()!.status === 'EN_COURS'"
+              [disabled]="ticket()!.status === 'EN_COURS' || statusUpdating()"
+              (click)="setStatus('EN_COURS')"
+            >
+              <lucide-icon name="play-circle" [size]="15"></lucide-icon>
+              Mettre en cours
+            </button>
+
+            <button
+              class="status-btn"
+              [class.active]="ticket()!.status === 'EN_ATTENTE'"
+              [disabled]="ticket()!.status === 'EN_ATTENTE' || statusUpdating()"
+              (click)="setStatus('EN_ATTENTE')"
+            >
+              <lucide-icon name="pause-circle" [size]="15"></lucide-icon>
+              Mettre en attente
+            </button>
+
+            <button
+              class="status-btn status-btn-success"
+              [class.active]="ticket()!.status === 'RESOLU'"
+              [disabled]="ticket()!.status === 'RESOLU' || statusUpdating()"
+              (click)="setStatus('RESOLU')"
+            >
+              <lucide-icon name="check-circle" [size]="15"></lucide-icon>
+              Résoudre
+            </button>
+
+            <button
+              class="status-btn status-btn-neutral"
+              [class.active]="ticket()!.status === 'FERME'"
+              [disabled]="ticket()!.status === 'FERME' || statusUpdating()"
+              (click)="setStatus('FERME')"
+            >
+              <lucide-icon name="lock" [size]="15"></lucide-icon>
+              Fermer
+            </button>
+
+          </div>
+        </div>
+
+        <!-- Meta info -->
+        <div class="aside-card">
+          <h3 class="aside-title">Détails</h3>
+
+          <div class="aside-row">
+            <span class="aside-label">Priorité</span>
+            <span class="prio-badge" [ngClass]="getPriorityClass(ticket()!.priority)">
+              {{ getPriorityLabel(ticket()!.priority) }}
+            </span>
+          </div>
+
+          <div class="aside-row">
+            <span class="aside-label">Catégorie</span>
+            <span class="aside-value">{{ getCategoryLabel(ticket()!.category) }}</span>
+          </div>
+
+          <div class="aside-row">
+            <span class="aside-label">Statut</span>
+            <span class="badge" [ngClass]="getStatusClass(ticket()!.status)">
+              {{ getStatusLabel(ticket()!.status) }}
+            </span>
+          </div>
+
+          <div class="aside-row">
+            <span class="aside-label">Créé par</span>
+            <div class="aside-user">
+              <div class="avatar-sm">{{ getInitials(ticket()!.createdBy) }}</div>
+              <span>{{ getUserName(ticket()!.createdBy) }}</span>
+            </div>
+          </div>
+
+          <div class="aside-row">
+            <span class="aside-label">Assigné à</span>
+            @if (ticket()!.assignedTo) {
+              <div class="aside-user">
+                <div class="avatar-sm">{{ getInitials(ticket()!.assignedTo) }}</div>
+                <span>{{ getUserName(ticket()!.assignedTo) }}</span>
+              </div>
+            } @else {
+              <span class="aside-value text-muted">Non assigné</span>
+            }
+          </div>
+
+          <div class="aside-row">
+            <span class="aside-label">Puits</span>
+            <span class="aside-value">{{ getWellDisplay(ticket()!) }}</span>
+          </div>
+
+          @if (ticket()!.dueDate) {
+            <div class="aside-row">
+              <span class="aside-label">Date limite</span>
+              <span class="aside-value">{{ formatDateShort(ticket()!.dueDate!) }}</span>
+            </div>
+          }
+
+          <div class="aside-row">
+            <span class="aside-label">Créé le</span>
+            <span class="aside-value">{{ formatDateShort(ticket()!.createdAt) }}</span>
+          </div>
+
+        </div>
+
+      </aside>
+
+    </div>
+  }
+
+</div>
+
+<!-- Delete confirmation modal -->
+@if (deleteConfirm()) {
+  <div class="modal-backdrop" (click)="deleteConfirm.set(false)">
+    <div class="modal modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Supprimer le ticket</h2>
+        <button class="modal-close" (click)="deleteConfirm.set(false)">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="delete-warning">
+          <lucide-icon name="alert-triangle" [size]="32" class="delete-icon"></lucide-icon>
+          <p>Cette action est irréversible. Le ticket <strong>{{ ticket()!.code }}</strong> et tous ses commentaires seront définitivement supprimés.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="deleteConfirm.set(false)">Annuler</button>
+        <button class="btn btn-danger" (click)="deleteTicket()" [disabled]="deleteLoading()">
+          @if (deleteLoading()) { <span class="btn-spinner"></span> }
+          Supprimer définitivement
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Edit modal -->
+@if (editModal()) {
+  <div class="modal-backdrop" (click)="closeEditModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Modifier le ticket</h2>
+        <button class="modal-close" (click)="closeEditModal()">×</button>
+      </div>
+      <div class="modal-body">
+
+        <div class="form-group">
+          <label>Titre *</label>
+          <input type="text" placeholder="Titre du ticket…"
+            [ngModel]="editTitle()"
+            (ngModelChange)="editTitle.set($event)" />
+        </div>
+
+        <div class="form-group">
+          <label>Description</label>
+          <textarea rows="4" placeholder="Décrivez le problème ou la demande…"
+            [ngModel]="editDescription()"
+            (ngModelChange)="editDescription.set($event)"></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Catégorie</label>
+            <select [ngModel]="editCategory()" (ngModelChange)="editCategory.set($event)">
+              <option value="">-- Sélectionner --</option>
+              @for (opt of categoryOptions; track opt.value) {
+                <option [value]="opt.value">{{ opt.label }}</option>
+              }
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Priorité</label>
+            <select [ngModel]="editPriority()" (ngModelChange)="editPriority.set($event)">
+              @for (opt of priorityOptions; track opt.value) {
+                <option [value]="opt.value">{{ opt.label }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Assigné à</label>
+            <select [ngModel]="editAssignedToId()" (ngModelChange)="editAssignedToId.set($event)"
+              [disabled]="modalUsersLoading()">
+              <option value="">Non assigné</option>
+              @for (u of modalUsers(); track u.id) {
+                <option [value]="u.id">{{ u.firstName }} {{ u.lastName }}</option>
+              }
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Puits</label>
+            <select [ngModel]="editWellId()" (ngModelChange)="editWellId.set($event)"
+              [disabled]="modalWellsLoading()">
+              <option value="">Aucun puits</option>
+              @for (w of modalWells(); track w.id) {
+                <option [value]="w.id">{{ w.code }}{{ w.name ? ' – ' + w.name : '' }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Date limite</label>
+          <input type="date"
+            [ngModel]="editDueDate()"
+            (ngModelChange)="editDueDate.set($event)" />
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeEditModal()">Annuler</button>
+        <button class="btn btn-primary" (click)="submitEdit()" [disabled]="editLoading() || !editTitle().trim()">
+          @if (editLoading()) { <span class="btn-spinner"></span> }
+          Enregistrer
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,462 @@
+<div class="pd-root">
+
+  @if (loading()) {
+    <div class="pd-loading">
+      <div class="spinner"></div>
+      <span>Chargement du projet…</span>
+    </div>
+  } @else if (!project()) {
+    <div class="pd-empty">
+      <lucide-icon name="triangle-alert" [size]="40"></lucide-icon>
+      <p>Projet introuvable</p>
+      <a [routerLink]="['/projects']" class="btn btn-secondary">Retour aux projets</a>
+    </div>
+  } @else {
+    <!-- Back button -->
+    <div class="pd-back-row">
+      <a [routerLink]="['/projects']" class="pd-back-btn">
+        <lucide-icon name="arrow-left" [size]="16"></lucide-icon>
+        Projets
+      </a>
+      <div class="pd-header-actions">
+        @if (!deleteConfirm()) {
+          <button class="btn btn-danger-outline" (click)="deleteConfirm.set(true)">
+            <lucide-icon name="trash-2" [size]="15"></lucide-icon>
+            Supprimer
+          </button>
+        } @else {
+          <span class="delete-confirm-text">Confirmer la suppression ?</span>
+          <button class="btn btn-danger" (click)="deleteProject()">Oui, supprimer</button>
+          <button class="btn btn-secondary" (click)="deleteConfirm.set(false)">Annuler</button>
+        }
+      </div>
+    </div>
+
+    <!-- Project Header -->
+    <div class="pd-header">
+      <div class="pd-header-emoji" [style.background]="project()!.color + '22'" [style.border-color]="project()!.color + '55'">
+        <span>{{ project()!.emoji || '🚀' }}</span>
+      </div>
+      <div class="pd-header-info">
+        <div class="pd-title-row">
+          <h1 class="pd-title">{{ project()!.title }}</h1>
+          <span class="pd-status-badge"
+            [style.color]="getStatusInfo(project()!.status).color"
+            [style.background]="getStatusInfo(project()!.status).bg">
+            {{ getStatusInfo(project()!.status).label }}
+          </span>
+        </div>
+        @if (project()!.description) {
+          <p class="pd-desc">{{ project()!.description }}</p>
+        }
+        <div class="pd-meta-row">
+          <div class="pd-progress-wrap">
+            <span class="pd-progress-label">Progression</span>
+            <div class="pd-progress-track">
+              <div class="pd-progress-fill"
+                [style.width.%]="project()!.progress"
+                [style.background]="progressColor(project()!.progress)">
+              </div>
+            </div>
+            <span class="pd-progress-pct" [style.color]="progressColor(project()!.progress)">
+              {{ project()!.progress }}%
+            </span>
+          </div>
+          @if (project()!.targetDate) {
+            <div class="pd-target-date">
+              <lucide-icon name="calendar" [size]="14"></lucide-icon>
+              <span>Date cible : <strong>{{ formatDate(project()!.targetDate) }}</strong></span>
+            </div>
+          }
+          @if (project()!.budgetTotal) {
+            <div class="pd-budget">
+              <lucide-icon name="target" [size]="14"></lucide-icon>
+              <span>Budget : <strong>{{ project()!.budgetTotal | number:'1.0-0' }} €</strong></span>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="pd-tabs">
+      <button class="pd-tab-btn" [class.active]="activeTab() === 'timeline'" (click)="activeTab.set('timeline')">
+        <lucide-icon name="layers" [size]="15"></lucide-icon>
+        Timeline
+      </button>
+      <button class="pd-tab-btn" [class.active]="activeTab() === 'frise'" (click)="activeTab.set('frise')">
+        <lucide-icon name="circle-check-big" [size]="15"></lucide-icon>
+        Frise chronologique
+      </button>
+      <button class="pd-tab-btn" [class.active]="activeTab() === 'membres'" (click)="activeTab.set('membres')">
+        <lucide-icon name="users" [size]="15"></lucide-icon>
+        Membres
+        <span class="tab-count">{{ project()!.members.length + 1 }}</span>
+      </button>
+    </div>
+
+    <!-- Tab content -->
+    <div class="pd-tab-content">
+
+      <!-- ── TIMELINE ─────────────────────────────────────────────────────── -->
+      @if (activeTab() === 'timeline') {
+        <div class="pd-timeline-header">
+          <h2>Jalons <span class="count-chip">{{ sortedMilestones().length }}</span></h2>
+          <button class="btn btn-primary" (click)="openCreateMilestone()">
+            <lucide-icon name="plus" [size]="15"></lucide-icon>
+            Ajouter un jalon
+          </button>
+        </div>
+
+        @if (sortedMilestones().length === 0) {
+          <div class="milestone-empty">
+            <lucide-icon name="layers" [size]="36"></lucide-icon>
+            <p>Aucun jalon pour l'instant</p>
+            <button class="btn btn-primary" (click)="openCreateMilestone()">Créer le premier jalon</button>
+          </div>
+        } @else {
+          <div class="milestone-list">
+            @for (m of sortedMilestones(); track m.id) {
+              <div class="milestone-row" [class.expanded]="isMilestoneExpanded(m.id)">
+
+                <!-- Row header -->
+                <div class="milestone-row-header" (click)="toggleMilestone(m.id)">
+                  <button class="chevron-btn">
+                    @if (isMilestoneExpanded(m.id)) {
+                      <lucide-icon name="chevron-down" [size]="16"></lucide-icon>
+                    } @else {
+                      <lucide-icon name="chevron-right" [size]="16"></lucide-icon>
+                    }
+                  </button>
+
+                  <span class="jalon-pill" [style.border-color]="project()!.color" [style.color]="project()!.color">
+                    Jalon {{ milestoneIndex(m.id) }}
+                  </span>
+
+                  <span class="milestone-title">{{ m.title }}</span>
+
+                  <span class="milestone-status-badge"
+                    [style.color]="getMilestoneStatusInfo(m.status).color"
+                    [style.background]="getMilestoneStatusInfo(m.status).bg">
+                    {{ getMilestoneStatusInfo(m.status).label }}
+                  </span>
+
+                  @if (m.tasks.length > 0) {
+                    <span class="task-progress-chip">
+                      <lucide-icon name="check" [size]="12"></lucide-icon>
+                      {{ completedTasksCount(m) }}/{{ m.tasks.length }}
+                    </span>
+                  }
+
+                  @if (m.dueDate) {
+                    <span class="milestone-due">
+                      <lucide-icon name="calendar" [size]="12"></lucide-icon>
+                      {{ formatDate(m.dueDate) }}
+                    </span>
+                  }
+
+                  <div class="milestone-actions" (click)="$event.stopPropagation()">
+                    <button class="icon-btn" title="Modifier" (click)="openEditMilestone(m)">
+                      <lucide-icon name="pencil" [size]="14"></lucide-icon>
+                    </button>
+                    <button class="icon-btn icon-btn-danger" title="Supprimer" (click)="deleteMilestone(m.id)">
+                      <lucide-icon name="trash-2" [size]="14"></lucide-icon>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Expanded content -->
+                @if (isMilestoneExpanded(m.id)) {
+                  <div class="milestone-expanded">
+                    @if (m.description) {
+                      <p class="milestone-desc">{{ m.description }}</p>
+                    }
+
+                    <!-- Tasks -->
+                    <div class="task-list">
+                      @if (m.tasks.length === 0) {
+                        <p class="no-tasks">Aucune tâche pour ce jalon</p>
+                      } @else {
+                        @for (t of m.tasks; track t.id) {
+                          <label class="milestone-task" [class.completed]="t.isCompleted">
+                            <input type="checkbox" class="milestone-task-check"
+                              [checked]="t.isCompleted"
+                              (change)="toggleTask(m.id, t.id, t.isCompleted)" />
+                            <span class="task-title">{{ t.title }}</span>
+                          </label>
+                        }
+                      }
+                    </div>
+
+                    <!-- Inline add task -->
+                    <div class="inline-add-task">
+                      <input
+                        type="text"
+                        placeholder="Nouvelle tâche…"
+                        class="inline-task-input"
+                        [ngModel]="getTaskInput(m.id)"
+                        (ngModelChange)="setNewTaskTitle(m.id, $event)"
+                        (keydown.enter)="addInlineTask(m.id)"
+                      />
+                      <button class="btn-add-task" (click)="addInlineTask(m.id)"
+                        [disabled]="!getTaskInput(m.id).trim()">
+                        <lucide-icon name="plus" [size]="14"></lucide-icon>
+                        Ajouter
+                      </button>
+                    </div>
+                  </div>
+                }
+
+              </div>
+            }
+          </div>
+        }
+      }
+
+      <!-- ── FRISE ─────────────────────────────────────────────────────────── -->
+      @if (activeTab() === 'frise') {
+        <div class="frise-wrap">
+          @if (sortedMilestones().length === 0) {
+            <div class="milestone-empty">
+              <lucide-icon name="layers" [size]="36"></lucide-icon>
+              <p>Aucun jalon à afficher</p>
+            </div>
+          } @else {
+            <div class="frise-container">
+              <div class="frise-line"></div>
+              <div class="frise-items">
+                @for (m of sortedMilestones(); track m.id; let i = $index) {
+                  <div class="frise-item" [class.above]="i % 2 === 0" [class.below]="i % 2 !== 0">
+
+                    @if (i % 2 === 0) {
+                      <!-- Label above -->
+                      <div class="frise-label frise-label-above">
+                        <div class="frise-label-title">{{ m.title }}</div>
+                        @if (m.dueDate) {
+                          <div class="frise-label-date">{{ formatDate(m.dueDate) }}</div>
+                        }
+                        <span class="frise-badge"
+                          [style.color]="getMilestoneStatusInfo(m.status).color"
+                          [style.background]="getMilestoneStatusInfo(m.status).bg">
+                          {{ getMilestoneStatusInfo(m.status).label }}
+                        </span>
+                      </div>
+                      <!-- Dot -->
+                      <div class="frise-dot-wrap">
+                        <div class="frise-connector frise-connector-above"></div>
+                        <div class="frise-dot"
+                          [style.background]="getMilestoneStatusInfo(m.status).dot"
+                          [style.border-color]="getMilestoneStatusInfo(m.status).dot">
+                          <span class="frise-dot-num">{{ i + 1 }}</span>
+                        </div>
+                        <div class="frise-connector frise-connector-below" style="visibility:hidden"></div>
+                      </div>
+                      <div class="frise-spacer"></div>
+                    } @else {
+                      <!-- Label below -->
+                      <div class="frise-spacer"></div>
+                      <div class="frise-dot-wrap">
+                        <div class="frise-connector frise-connector-above" style="visibility:hidden"></div>
+                        <div class="frise-dot"
+                          [style.background]="getMilestoneStatusInfo(m.status).dot"
+                          [style.border-color]="getMilestoneStatusInfo(m.status).dot">
+                          <span class="frise-dot-num">{{ i + 1 }}</span>
+                        </div>
+                        <div class="frise-connector frise-connector-below"></div>
+                      </div>
+                      <div class="frise-label frise-label-below">
+                        <div class="frise-label-title">{{ m.title }}</div>
+                        @if (m.dueDate) {
+                          <div class="frise-label-date">{{ formatDate(m.dueDate) }}</div>
+                        }
+                        <span class="frise-badge"
+                          [style.color]="getMilestoneStatusInfo(m.status).color"
+                          [style.background]="getMilestoneStatusInfo(m.status).bg">
+                          {{ getMilestoneStatusInfo(m.status).label }}
+                        </span>
+                      </div>
+                    }
+
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- ── MEMBRES ───────────────────────────────────────────────────────── -->
+      @if (activeTab() === 'membres') {
+        <div class="members-section">
+
+          <!-- Owner -->
+          <div class="members-group">
+            <h3 class="members-group-title">
+              <lucide-icon name="crown" [size]="15"></lucide-icon>
+              Propriétaire
+            </h3>
+            <div class="member-card member-card-owner">
+              <div class="member-avatar" [style.background]="project()!.color">
+                {{ getInitials(project()!.owner.firstName, project()!.owner.lastName) }}
+              </div>
+              <div class="member-info">
+                <span class="member-name">{{ project()!.owner.firstName }} {{ project()!.owner.lastName }}</span>
+              </div>
+              <span class="role-badge role-owner">Propriétaire</span>
+            </div>
+          </div>
+
+          <!-- Members list -->
+          @if (project()!.members.length > 0) {
+            <div class="members-group">
+              <h3 class="members-group-title">
+                <lucide-icon name="users" [size]="15"></lucide-icon>
+                Membres ({{ project()!.members.length }})
+              </h3>
+              <div class="member-list">
+                @for (mem of project()!.members; track mem.id) {
+                  <div class="member-card">
+                    <div class="member-avatar member-avatar-secondary">
+                      {{ getInitials(mem.user.firstName, mem.user.lastName) }}
+                    </div>
+                    <div class="member-info">
+                      <span class="member-name">{{ mem.user.firstName }} {{ mem.user.lastName }}</span>
+                      <span class="member-email">{{ mem.user.email }}</span>
+                    </div>
+                    <span class="role-badge"
+                      [style.color]="getRoleInfo(mem.role).color"
+                      [style.background]="getRoleInfo(mem.role).bg">
+                      {{ getRoleInfo(mem.role).label }}
+                    </span>
+                    <button class="icon-btn icon-btn-danger member-remove-btn" title="Retirer" (click)="removeMember(mem.user.id)">
+                      <lucide-icon name="x" [size]="14"></lucide-icon>
+                    </button>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Invite section -->
+          <div class="invite-section">
+            @if (!showMemberModal()) {
+              <button class="btn btn-primary" (click)="showMemberModal.set(true)">
+                <lucide-icon name="plus" [size]="15"></lucide-icon>
+                Inviter un membre
+              </button>
+            } @else {
+              <div class="invite-form">
+                <h3 class="invite-title">Inviter un membre</h3>
+                <div class="invite-fields">
+                  <input
+                    type="email"
+                    placeholder="Adresse email…"
+                    class="invite-email-input"
+                    [ngModel]="memberEmail()"
+                    (ngModelChange)="memberEmail.set($event)"
+                  />
+                  <select class="invite-role-select" [ngModel]="memberRole()" (ngModelChange)="memberRole.set($event)">
+                    @for (r of roleOptions; track r.value) {
+                      <option [value]="r.value">{{ r.label }}</option>
+                    }
+                  </select>
+                  <button class="btn btn-primary" (click)="inviteMember()" [disabled]="memberLoading() || !memberEmail().trim()">
+                    @if (memberLoading()) { <span class="btn-spinner"></span> }
+                    Inviter
+                  </button>
+                  <button class="btn btn-secondary" (click)="showMemberModal.set(false)">Annuler</button>
+                </div>
+              </div>
+            }
+          </div>
+
+        </div>
+      }
+
+    </div>
+    <!-- end tab content -->
+
+  }
+  <!-- end if project -->
+
+</div>
+
+<!-- ── Milestone Modal ──────────────────────────────────────────────────────── -->
+@if (showMilestoneModal()) {
+  <div class="modal-overlay" (click)="showMilestoneModal.set(false)">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-head">
+        <h2>{{ editingMilestone() ? 'Modifier le jalon' : 'Nouveau jalon' }}</h2>
+        <button class="modal-close-btn" (click)="showMilestoneModal.set(false)">
+          <lucide-icon name="x" [size]="18"></lucide-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+
+        <div class="form-group">
+          <label>Titre *</label>
+          <input type="text" placeholder="Titre du jalon"
+            [ngModel]="milestoneTitle()" (ngModelChange)="milestoneTitle.set($event)" />
+        </div>
+
+        <div class="form-group">
+          <label>Description</label>
+          <textarea rows="3" placeholder="Description optionnelle…"
+            [ngModel]="milestoneDesc()" (ngModelChange)="milestoneDesc.set($event)"></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Date d'échéance</label>
+            <input type="date" [ngModel]="milestoneDue()" (ngModelChange)="milestoneDue.set($event)" />
+          </div>
+          @if (editingMilestone()) {
+            <div class="form-group">
+              <label>Statut</label>
+              <select [ngModel]="milestoneStatus()" (ngModelChange)="milestoneStatus.set($event)">
+                @for (opt of milestoneStatusOptions; track opt.value) {
+                  <option [value]="opt.value">{{ opt.label }}</option>
+                }
+              </select>
+            </div>
+          }
+        </div>
+
+        <!-- Tasks -->
+        @if (!editingMilestone()) {
+          <div class="form-group">
+            <label>Tâches</label>
+            <div class="modal-task-list">
+              @for (t of milestoneTasks(); track $index; let i = $index) {
+                <div class="modal-task-row">
+                  <input
+                    type="text"
+                    placeholder="Titre de la tâche…"
+                    [ngModel]="t"
+                    (ngModelChange)="updateMilestoneTask(i, $event)"
+                  />
+                  <button type="button" class="icon-btn icon-btn-danger" (click)="removeMilestoneTask(i)"
+                    [disabled]="milestoneTasks().length === 1">
+                    <lucide-icon name="x" [size]="14"></lucide-icon>
+                  </button>
+                </div>
+              }
+            </div>
+            <button type="button" class="btn-add-task-modal" (click)="addMilestoneTask()">
+              <lucide-icon name="plus" [size]="14"></lucide-icon>
+              Ajouter une tâche
+            </button>
+          </div>
+        }
+
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary" (click)="showMilestoneModal.set(false)">Annuler</button>
+        <button class="btn btn-primary" (click)="saveMilestone()" [disabled]="milestoneLoading() || !milestoneTitle().trim()">
+          @if (milestoneLoading()) { <span class="btn-spinner"></span> }
+          {{ editingMilestone() ? 'Enregistrer' : 'Créer le jalon' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

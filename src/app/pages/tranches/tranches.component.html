@@ -1,0 +1,130 @@
+<div class="page-content">
+
+  <!-- En-tête -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Tranches de financement</h1>
+      <p class="text-muted">{{ tranches().length }} tranches au total</p>
+    </div>
+    <select [value]="country()" (change)="country.set($any($event.target).value); load()" class="filter-select">
+      <option value="">Tous les pays</option>
+      @for (c of countries; track c) {
+        @if (c) { <option [value]="c">{{ c }}</option> }
+      }
+    </select>
+  </div>
+
+  @if (loading()) {
+    <div class="loading-wrapper"><div class="spinner"></div></div>
+  } @else {
+
+    <!-- Kanban board -->
+    <div class="kanban" cdkDropListGroup>
+      @for (col of columns; track col.key) {
+
+        <div class="kanban-col">
+
+          <!-- Header colonne -->
+          <div class="col-header" [style.border-color]="col.color">
+            <span class="col-dot" [style.background]="col.color"></span>
+            <span class="col-label">{{ col.label }}</span>
+            <span class="col-count" [style.background]="col.bg" [style.color]="col.color">
+              {{ byStatus(col.key).length }}
+            </span>
+          </div>
+
+          <!-- Zone de drop -->
+          <div
+            class="col-cards"
+            cdkDropList
+            [id]="'drop-' + col.key"
+            [cdkDropListData]="columnData()[col.key]"
+            [cdkDropListConnectedTo]="dropListIds"
+            (cdkDropListDropped)="onDrop($event, col.key)"
+          >
+            @if (byStatus(col.key).length === 0) {
+              <div class="col-empty">Déposez une carte ici</div>
+            }
+
+            @for (t of byStatus(col.key); track t.id) {
+              <div class="tranche-card" cdkDrag [cdkDragData]="t">
+
+                <!-- Placeholder pendant le drag -->
+                <div *cdkDragPlaceholder class="drag-placeholder"></div>
+
+                <div class="tc-top">
+                  <code class="ref">{{ t.reference }}</code>
+                  <span class="tc-amount">{{ t.amount | currency:'EUR':'symbol':'1.0-0' }}</span>
+                </div>
+
+                <p class="tc-name">{{ t.name }}</p>
+
+                <div class="tc-meta">
+                  <span class="tc-country">{{ t.country }}</span>
+                  @if (t.wellId) {
+                    <span class="tc-linked">Puits lié</span>
+                  }
+                </div>
+
+                <!-- Tags + bouton ajout -->
+                <div class="tc-tags-row">
+                  @for (tag of t.tags ?? []; track tag.label) {
+                    <span class="tag-chip"
+                      [style.background]="tag.color + '22'"
+                      [style.color]="tag.color">
+                      {{ tag.label }}
+                      <button class="tag-remove" (click)="removeTag(t, tag.label)" title="Supprimer">×</button>
+                    </span>
+                  }
+
+                  <!-- Bouton + -->
+                  <div class="tag-add-wrap">
+                    <button class="tag-add-btn" (click)="togglePicker(t.id); $event.stopPropagation()" title="Ajouter un tag">+</button>
+
+                    @if (isPickerOpen(t.id)) {
+                      <div class="tag-popover" (click)="$event.stopPropagation()">
+                        <input
+                          class="tag-popover-input"
+                          type="text"
+                          placeholder="Nom du tag…"
+                          [value]="getTagInput(t.id)"
+                          (input)="setTagInput(t.id, $any($event.target).value)"
+                          (keydown.enter)="addTag(t)"
+                          autofocus
+                        />
+                        <div class="color-swatches">
+                          @for (c of tagPalette; track c) {
+                            <button
+                              class="color-dot"
+                              [style.background]="c"
+                              [class.selected]="getSelectedColor(t.id) === c"
+                              (click)="setSelectedColor(t.id, c)"
+                            ></button>
+                          }
+                        </div>
+                        <button class="tag-confirm-btn" (click)="addTag(t)">Ajouter</button>
+                      </div>
+                    }
+                  </div>
+                </div>
+
+                <div class="tc-actions">
+                  <a [routerLink]="['/tranches', t.id]" class="btn btn-secondary btn-sm">Détail</a>
+                  @if (nextStatus(t.status); as ns) {
+                    <button class="btn-advance" (click)="updateStatus(t, ns)">
+                      {{ nextLabel(t.status) }} →
+                    </button>
+                  }
+                </div>
+
+              </div>
+            }
+          </div>
+
+        </div>
+      }
+    </div>
+
+  }
+
+</div>

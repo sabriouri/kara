@@ -1,0 +1,296 @@
+<div class="page-content">
+
+  <!-- ── Header ── -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Tâches</h1>
+      <p class="text-muted" style="margin-top:4px">Gérez et suivez toutes les tâches de l'équipe</p>
+    </div>
+    <div class="header-actions">
+      <!-- View toggle -->
+      <div class="view-toggle">
+        <button
+          class="toggle-btn"
+          [class.active]="viewMode() === 'kanban'"
+          (click)="viewMode.set('kanban')"
+          title="Vue Kanban"
+        >
+          <lucide-icon name="layout-dashboard" [size]="15"></lucide-icon>
+          Kanban
+        </button>
+        <button
+          class="toggle-btn"
+          [class.active]="viewMode() === 'list'"
+          (click)="viewMode.set('list')"
+          title="Vue Liste"
+        >
+          <lucide-icon name="list" [size]="15"></lucide-icon>
+          Liste
+        </button>
+      </div>
+      <button class="btn btn-primary" (click)="openModal()">
+        <lucide-icon name="plus" [size]="15"></lucide-icon>
+        Nouvelle tâche
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Filters ── -->
+  <div class="filters-bar">
+    <div class="search-wrap">
+      <lucide-icon name="search" [size]="15" class="search-icon"></lucide-icon>
+      <input
+        type="text"
+        class="search-input"
+        placeholder="Rechercher une tâche…"
+        [ngModel]="search()"
+        (ngModelChange)="search.set($event); onFilter()"
+      />
+    </div>
+    <select class="filter-select" [ngModel]="priority()" (ngModelChange)="priority.set($event); onFilter()">
+      <option value="">Toutes priorités</option>
+      <option value="BASSE">Basse</option>
+      <option value="NORMAL">Normal</option>
+      <option value="HAUTE">Haute</option>
+      <option value="URGENTE">Urgente</option>
+    </select>
+    <span class="task-count text-muted">{{ filteredTasks().length }} tâche(s)</span>
+  </div>
+
+  <!-- ── Loading ── -->
+  @if (loading()) {
+    <div class="loading-wrapper"><div class="spinner"></div></div>
+  }
+
+  <!-- ── KANBAN VIEW ── -->
+  @if (!loading() && viewMode() === 'kanban') {
+    <div class="kanban-board" cdkDropListGroup>
+      @for (col of columns; track col.key) {
+        <div class="kanban-column">
+          <div class="column-header" [style.border-top-color]="col.color">
+            <div class="col-title-row">
+              <span class="col-label" [style.color]="col.accent">{{ col.label }}</span>
+              <span class="col-count" [style.background]="col.bg" [style.color]="col.accent">
+                {{ columnTasks()[col.key].length }}
+              </span>
+            </div>
+          </div>
+
+          <div
+            class="kanban-list"
+            [id]="'col-' + col.key"
+            cdkDropList
+            [cdkDropListData]="columnTasks()[col.key]"
+            [cdkDropListConnectedTo]="dropListIds"
+            (cdkDropListDropped)="onDrop($event, col.key)"
+            [style.background]="col.bg + '44'"
+          >
+            @for (task of columnTasks()[col.key]; track task.id) {
+              <div class="task-card" cdkDrag [cdkDragData]="task">
+                <!-- Drag placeholder -->
+                <div class="drag-placeholder" *cdkDragPlaceholder></div>
+
+                <div class="task-card-header">
+                  <span class="badge {{ priorityClass(task.priority) }}">
+                    {{ priorityLabel(task.priority) }}
+                  </span>
+                  @if (isOverdue(task.dueDate) && task.status !== 'COMPLETED') {
+                    <lucide-icon name="alert-circle" [size]="13" class="overdue-icon" title="En retard"></lucide-icon>
+                  }
+                </div>
+
+                <p class="task-title">{{ task.title }}</p>
+
+                @if (task.description) {
+                  <p class="task-desc">{{ task.description }}</p>
+                }
+
+                <!-- Progress bar -->
+                <div class="progress-wrap">
+                  <div class="progress-bar-bg">
+                    <div
+                      class="progress-bar-fill"
+                      [style.width.%]="task.progress"
+                      [style.background]="col.color"
+                    ></div>
+                  </div>
+                  <span class="progress-label">{{ task.progress }}%</span>
+                </div>
+
+                <div class="task-footer">
+                  @if (task.assignee) {
+                    <div class="assignee-avatar" [title]="assigneeName(task)">
+                      {{ initials(task) }}
+                    </div>
+                  } @else {
+                    <div class="assignee-empty">
+                      <lucide-icon name="user" [size]="12"></lucide-icon>
+                    </div>
+                  }
+                  <div class="due-date" [class.overdue]="isOverdue(task.dueDate)">
+                    <lucide-icon name="calendar" [size]="11"></lucide-icon>
+                    {{ formatDate(task.dueDate) }}
+                  </div>
+                </div>
+              </div>
+            }
+
+            @if (columnTasks()[col.key].length === 0) {
+              <div class="col-empty">
+                <lucide-icon name="inbox" [size]="20"></lucide-icon>
+                <span>Aucune tâche</span>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ── LIST VIEW ── -->
+  @if (!loading() && viewMode() === 'list') {
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Titre</th>
+            <th>Priorité</th>
+            <th>Statut</th>
+            <th>Assigné à</th>
+            <th>Échéance</th>
+            <th>Progression</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (task of filteredTasks(); track task.id) {
+            <tr>
+              <td>
+                <span class="task-name">{{ task.title }}</span>
+                @if (task.description) {
+                  <span class="task-desc-sm text-muted">{{ task.description }}</span>
+                }
+              </td>
+              <td>
+                <span class="badge {{ priorityClass(task.priority) }}">
+                  {{ priorityLabel(task.priority) }}
+                </span>
+              </td>
+              <td>
+                <select
+                  class="status-select"
+                  [ngModel]="task.status"
+                  (ngModelChange)="updateStatus(task, $event)"
+                >
+                  @for (s of statuses; track s) {
+                    <option [value]="s">{{ statusLabel(s) }}</option>
+                  }
+                </select>
+              </td>
+              <td>
+                <div class="assignee-cell">
+                  @if (task.assignee) {
+                    <div class="assignee-avatar sm">{{ initials(task) }}</div>
+                    <span>{{ assigneeName(task) }}</span>
+                  } @else {
+                    <span class="text-muted">—</span>
+                  }
+                </div>
+              </td>
+              <td [class.text-danger]="isOverdue(task.dueDate) && task.status !== 'COMPLETED'">
+                {{ formatDate(task.dueDate) }}
+              </td>
+              <td>
+                <div class="list-progress">
+                  <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" [style.width.%]="task.progress"></div>
+                  </div>
+                  <span class="progress-label">{{ task.progress }}%</span>
+                </div>
+              </td>
+              <td>
+                <div class="action-btns">
+                  @for (col of columns; track col.key) {
+                    @if (task.status !== col.key) {
+                      <!-- quick move button shown as compact dots -->
+                    }
+                  }
+                  <button
+                    class="btn btn-sm btn-secondary"
+                    (click)="updateStatus(task, 'COMPLETED')"
+                    [disabled]="task.status === 'COMPLETED'"
+                    title="Marquer terminé"
+                  >
+                    <lucide-icon name="check" [size]="13"></lucide-icon>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          }
+          @if (filteredTasks().length === 0) {
+            <tr>
+              <td colspan="7" class="empty-row">
+                <lucide-icon name="clipboard-x" [size]="22"></lucide-icon>
+                Aucune tâche trouvée
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+</div>
+
+<!-- ── Create Task Modal ── -->
+@if (showModal()) {
+  <div class="modal-backdrop" (click)="closeModal()">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Nouvelle tâche</h2>
+        <button class="btn-icon" (click)="closeModal()">
+          <lucide-icon name="x" [size]="18"></lucide-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Titre *</label>
+          <input type="text" [(ngModel)]="newTask.title" placeholder="Titre de la tâche" />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea [(ngModel)]="newTask.description" placeholder="Description optionnelle…" rows="3"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Priorité</label>
+            <select [(ngModel)]="newTask.priority">
+              <option value="BASSE">Basse</option>
+              <option value="NORMAL">Normal</option>
+              <option value="HAUTE">Haute</option>
+              <option value="URGENTE">Urgente</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Échéance</label>
+            <input type="date" [(ngModel)]="newTask.dueDate" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeModal()">Annuler</button>
+        <button
+          class="btn btn-primary"
+          (click)="createTask()"
+          [disabled]="!newTask.title.trim() || saving()"
+        >
+          @if (saving()) {
+            <span class="btn-spinner"></span> Création…
+          } @else {
+            <lucide-icon name="plus" [size]="15"></lucide-icon> Créer
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}

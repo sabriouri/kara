@@ -1,0 +1,275 @@
+<div class="page-content">
+
+  <!-- En-tête -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Modèles d'emails</h1>
+      <p class="text-muted">{{ templates().length }} modèle(s) au total</p>
+    </div>
+    <button class="btn btn-primary" (click)="openCreate()">
+      <lucide-icon name="plus" [size]="16"></lucide-icon>
+      Nouveau modèle
+    </button>
+  </div>
+
+  <!-- Stats par catégorie -->
+  <div class="cat-stats">
+    @for (s of stats(); track s.category) {
+      <button
+        class="cat-stat-card"
+        [class.active]="categoryFilter() === s.category"
+        [style.--cat-color]="categoryColor(s.category)"
+        (click)="categoryFilter.set(categoryFilter() === s.category ? '' : s.category)"
+      >
+        <span class="cat-dot" [style.background]="categoryColor(s.category)"></span>
+        <span class="cat-name">{{ categoryLabel(s.category) }}</span>
+        <span class="cat-count" [style.background]="categoryColor(s.category) + '22'" [style.color]="categoryColor(s.category)">{{ s.count }}</span>
+      </button>
+    }
+  </div>
+
+  <!-- Filtres -->
+  <div class="filters">
+    <div class="search-wrap">
+      <lucide-icon name="search" [size]="16" class="search-icon"></lucide-icon>
+      <input
+        type="text"
+        class="filter-input"
+        placeholder="Rechercher un modèle…"
+        [value]="searchQuery()"
+        (input)="searchQuery.set($any($event.target).value)"
+      />
+    </div>
+    <select class="filter-select" [value]="categoryFilter()" (change)="categoryFilter.set($any($event.target).value)">
+      <option value="">Toutes les catégories</option>
+      @for (cat of categories; track cat) {
+        <option [value]="cat">{{ categoryLabel(cat) }}</option>
+      }
+    </select>
+    @if (categoryFilter() || searchQuery()) {
+      <button class="btn btn-secondary btn-sm" (click)="categoryFilter.set(''); searchQuery.set('')">
+        <lucide-icon name="x" [size]="13"></lucide-icon>
+        Effacer les filtres
+      </button>
+    }
+  </div>
+
+  <!-- Grille des modèles -->
+  @if (loading()) {
+    <div class="loading-wrapper"><div class="spinner"></div></div>
+  } @else if (filtered().length === 0) {
+    <div class="empty-state">
+      <lucide-icon name="mail" [size]="52" [strokeWidth]="1.2" class="empty-icon"></lucide-icon>
+      <p class="empty-title">Aucun modèle trouvé</p>
+      <p class="empty-sub">Créez votre premier modèle d'email ou modifiez vos filtres.</p>
+      <button class="btn btn-primary" (click)="openCreate()">Créer un modèle</button>
+    </div>
+  } @else {
+    <div class="templates-grid">
+      @for (t of filtered(); track t.id) {
+        <div class="template-card" (dblclick)="openPreview(t)">
+          <!-- Bandeau catégorie -->
+          <div class="card-cat-bar" [style.background]="categoryColor(t.category)"></div>
+
+          <div class="card-body">
+            <!-- Header -->
+            <div class="card-head">
+              <span class="cat-badge" [style.background]="categoryColor(t.category) + '1A'" [style.color]="categoryColor(t.category)">
+                {{ categoryLabel(t.category) }}
+              </span>
+              <span class="usage-count">
+                <lucide-icon name="send" [size]="11"></lucide-icon>
+                {{ t.usageCount }} envois
+              </span>
+            </div>
+
+            <!-- Title & Subject -->
+            <h3 class="card-title">{{ t.title }}</h3>
+            <p class="card-subject">{{ t.subject }}</p>
+
+            <!-- Body preview -->
+            <p class="card-preview">{{ t.body }}</p>
+
+            <!-- Variables -->
+            @if (t.variables.length) {
+              <div class="vars-row">
+                @for (v of t.variables; track v) {
+                  <span class="var-chip">{{ wrapVar(v) }}</span>
+                }
+              </div>
+            }
+
+            <!-- Footer -->
+            <div class="card-footer">
+              <span class="card-date">{{ t.createdAt | date:'dd/MM/yyyy' }}</span>
+              <div class="card-actions">
+                <button class="action-btn" [class.action-copied]="copiedId() === t.id" (click)="copyTemplate(t)" [title]="copiedId() === t.id ? 'Copié !' : 'Copier'">
+                  <lucide-icon [name]="copiedId() === t.id ? 'check' : 'copy'" [size]="15"></lucide-icon>
+                </button>
+                <button class="action-btn" (click)="openEdit(t)" title="Modifier">
+                  <lucide-icon name="pencil" [size]="15"></lucide-icon>
+                </button>
+                <button class="action-btn action-danger" (click)="openDelete(t)" title="Supprimer">
+                  <lucide-icon name="trash-2" [size]="15"></lucide-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+</div>
+
+<!-- ── Modal Créer / Modifier ───────────────── -->
+@if (showCreateModal() || showEditModal()) {
+  <div class="modal-overlay" (click)="closeModals()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">{{ showCreateModal() ? 'Nouveau modèle' : 'Modifier le modèle' }}</h2>
+        <button class="modal-close" (click)="closeModals()">
+          <lucide-icon name="x" [size]="20"></lucide-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group form-full">
+            <label class="form-label">Titre du modèle *</label>
+            <input type="text" class="form-input" placeholder="Ex: Confirmation de don" [(ngModel)]="form.title" />
+          </div>
+
+          <div class="form-group form-full">
+            <label class="form-label">Objet de l'email *</label>
+            <input type="text" class="form-input" [placeholder]="'Ex: Merci pour votre don, {{prenom}}'" [(ngModel)]="form.subject" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Catégorie *</label>
+            <select class="form-input" [(ngModel)]="form.category">
+              <option value="">Choisir une catégorie</option>
+              @for (cat of categories; track cat) {
+                <option [value]="cat">{{ categoryLabel(cat) }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Variables <span class="form-hint">(séparées par des virgules)</span></label>
+            <input type="text" class="form-input" placeholder="prenom, montant, date" [(ngModel)]="form.variables" />
+          </div>
+
+          <div class="form-group form-full">
+            <label class="form-label">Corps de l'email *</label>
+            <textarea class="form-input form-textarea" rows="8" [placeholder]="'Rédigez votre email ici. Utilisez {{variable}} pour les champs dynamiques.'" [(ngModel)]="form.body"></textarea>
+          </div>
+
+          <div class="form-group form-full">
+            <label class="form-label">Tags <span class="form-hint">(séparés par des virgules)</span></label>
+            <input type="text" class="form-input" placeholder="confirmation, don, puits" [(ngModel)]="form.tags" />
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeModals()">Annuler</button>
+        <button class="btn btn-primary" (click)="showCreateModal() ? saveCreate() : saveEdit()" [disabled]="saving()">
+          <span *ngIf="saving()" class="btn-spinner"></span>
+          {{ showCreateModal() ? 'Créer' : 'Enregistrer' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ── Modal Prévisualisation ─────────────────── -->
+@if (showPreviewModal() && previewTemplate(); as t) {
+  <div class="modal-overlay" (click)="closeModals()">
+    <div class="modal modal-view" (click)="$event.stopPropagation()">
+
+      <!-- Bandeau couleur catégorie -->
+      <div class="view-cat-bar" [style.background]="categoryColor(t.category)"></div>
+
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <span class="cat-badge"
+            [style.background]="categoryColor(t.category) + '1A'"
+            [style.color]="categoryColor(t.category)">
+            {{ categoryLabel(t.category) }}
+          </span>
+          <h2 class="modal-title">{{ t.title }}</h2>
+        </div>
+        <button class="modal-close" (click)="closeModals()">
+          <lucide-icon name="x" [size]="20"></lucide-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Objet -->
+        <div class="view-field">
+          <span class="view-field-label">Objet</span>
+          <p class="view-subject">{{ t.subject }}</p>
+        </div>
+
+        <!-- Variables -->
+        @if (t.variables.length) {
+          <div class="view-field">
+            <span class="view-field-label">Variables</span>
+            <div class="vars-row">
+              @for (v of t.variables; track v) {
+                <span class="var-chip">{{ wrapVar(v) }}</span>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Corps -->
+        <div class="view-field">
+          <span class="view-field-label">Corps de l'email</span>
+          <div class="view-body">{{ t.body }}</div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <span class="view-meta">
+          <lucide-icon name="send" [size]="13"></lucide-icon>
+          {{ t.usageCount }} envois · {{ t.createdAt | date:'dd/MM/yyyy' }}
+        </span>
+        <button class="btn btn-secondary" (click)="closeModals()">Fermer</button>
+        <button class="btn btn-primary" (click)="copyTemplate(t)">
+          <lucide-icon [name]="copiedId() === t.id ? 'check' : 'copy'" [size]="15"></lucide-icon>
+          {{ copiedId() === t.id ? 'Copié !' : 'Copier' }}
+        </button>
+      </div>
+
+    </div>
+  </div>
+}
+
+<!-- ── Confirmation suppression ──────────────── -->
+@if (showDeleteConfirm() && selectedTemplate()) {
+  <div class="modal-overlay" (click)="closeModals()">
+    <div class="modal modal-confirm" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2 class="modal-title">Supprimer le modèle</h2>
+        <button class="modal-close" (click)="closeModals()">
+          <lucide-icon name="x" [size]="20"></lucide-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="confirm-icon">
+          <lucide-icon name="trash-2" [size]="36" [strokeWidth]="1.5"></lucide-icon>
+        </div>
+        <p class="confirm-text">
+          Êtes-vous sûr de vouloir supprimer le modèle <strong>« {{ selectedTemplate()!.title }} »</strong> ?
+          Cette action est irréversible.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeModals()">Annuler</button>
+        <button class="btn btn-danger" (click)="confirmDelete()">Supprimer définitivement</button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,488 @@
+<div class="mens-root">
+
+  <!-- ════ Stats Cards ════════════════════════════════════════════════════════ -->
+  @if (statsLoading()) {
+    <div class="stats-grid">
+      @for (i of [1,2,3,4]; track i) { <div class="stat-card skeleton-card"></div> }
+    </div>
+  } @else if (stats(); as s) {
+    <div class="stats-grid">
+
+      <div class="stat-card">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#667eea,#764ba2)">
+          <lucide-icon name="trending-up" [size]="26" color="white"></lucide-icon>
+        </div>
+        <div class="stat-content">
+          <div class="stat-label">Total Engagements</div>
+          <div class="stat-value">{{ fmtNum(s.total) }}</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#f093fb,#f5576c)">
+          <lucide-icon name="clock" [size]="26" color="white"></lucide-icon>
+        </div>
+        <div class="stat-content">
+          <div class="stat-label">En Cours</div>
+          <div class="stat-value">{{ fmtNum(s.enCours) }}</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#4facfe,#00f2fe)">
+          <lucide-icon name="circle-check-big" [size]="26" color="white"></lucide-icon>
+        </div>
+        <div class="stat-content">
+          <div class="stat-label">Complétés</div>
+          <div class="stat-value">{{ fmtNum(s.complets ?? 0) }}</div>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon" style="background:linear-gradient(135deg,#43e97b,#38f9d7)">
+          <lucide-icon name="euro" [size]="26" color="white"></lucide-icon>
+        </div>
+        <div class="stat-content">
+          <div class="stat-label">Collecté</div>
+          <div class="stat-value">{{ (s.totalCollecte ?? 0).toLocaleString('fr-FR') }} €</div>
+          <div class="stat-sublabel">sur {{ (s.totalVise ?? 0).toLocaleString('fr-FR') }} € visés</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Progress bar globale -->
+    <div class="global-progress-card">
+      <div class="progress-header">
+        <span>Progression Globale</span>
+        <span class="progress-percentage">{{ s.progressPercent ?? 0 }}%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" [style.width.%]="s.progressPercent ?? 0"></div>
+      </div>
+      <div class="progress-details">
+        <div class="progress-detail">
+          <lucide-icon name="building-2" [size]="16" color="#00d4aa"></lucide-icon>
+          <span>GoCardless : {{ fmtNum(s.gocardless ?? 0) }}</span>
+        </div>
+        <div class="progress-detail">
+          <lucide-icon name="credit-card" [size]="16" color="#ff6b6b"></lucide-icon>
+          <span>iRaiser : {{ fmtNum(s.iraiser ?? 0) }}</span>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ════ Filters & Actions ══════════════════════════════════════════════════ -->
+  <div class="filters-section">
+
+    <div class="filters-left">
+      <div class="search-wrap">
+        <lucide-icon name="search" [size]="16" class="search-icon"></lucide-icon>
+        <input
+          class="search-input"
+          type="text"
+          placeholder="Rechercher (email, nom)…"
+          [ngModel]="filterSearch()"
+          (ngModelChange)="filterSearch.set($event); applyFilters()"
+        />
+      </div>
+
+      <select class="filter-select"
+        [ngModel]="filterSource()"
+        (ngModelChange)="filterSource.set($event); applyFilters()">
+        @for (opt of sourceOptions; track opt.value) {
+          <option [value]="opt.value">{{ opt.label }}</option>
+        }
+      </select>
+
+      <select class="filter-select"
+        [ngModel]="filterStatus()"
+        (ngModelChange)="filterStatus.set($event); applyFilters()">
+        @for (opt of statusOptions; track opt.value) {
+          <option [value]="opt.value">{{ opt.label }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="filters-right">
+      <button class="btn-sync btn-sync-history" (click)="openSyncHistory()" title="Voir l'historique des synchronisations">
+        <lucide-icon name="chart-bar" [size]="15"></lucide-icon>
+        Historique
+      </button>
+      <button class="btn-sync btn-sync-duplicates" (click)="openDuplicates()" title="Détecter et gérer les doublons">
+        <lucide-icon name="copy" [size]="15"></lucide-icon>
+        Doublons
+      </button>
+      <button class="btn-sync btn-sync-iraiser" (click)="syncIraiser()" [disabled]="syncingIraiser()">
+        @if (syncingIraiser()) {
+          <span class="btn-spinner"></span>
+        } @else {
+          <lucide-icon name="refresh-cw" [size]="15"></lucide-icon>
+        }
+        Sync iRaiser
+      </button>
+      <button class="btn-sync btn-sync-gocardless" (click)="syncGocardless()" [disabled]="syncingGocardless()">
+        @if (syncingGocardless()) {
+          <span class="btn-spinner"></span>
+        } @else {
+          <lucide-icon name="refresh-cw" [size]="15"></lucide-icon>
+        }
+        Sync GoCardless
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Sync toast -->
+  @if (syncMessage()) {
+    <div class="sync-toast">
+      <lucide-icon name="circle-check-big" [size]="15"></lucide-icon>
+      {{ syncMessage() }}
+    </div>
+  }
+
+  <!-- ════ Table ══════════════════════════════════════════════════════════════ -->
+  @if (loading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      Chargement des engagements…
+    </div>
+  } @else {
+    <div class="table-meta">
+      <span>{{ filteredInstalments().length }} engagement(s) affiché(s)
+        @if (totalPages() > 1 && !hasActiveFilter()) { — Page {{ currentPage() }} / {{ totalPages() }} }
+      </span>
+    </div>
+    <div class="table-container">
+      <table class="instalments-table">
+        <thead>
+          <tr>
+            <th>Puits</th>
+            <th>Donateur</th>
+            <th>Source</th>
+            <th>Progression</th>
+            <th>Montant</th>
+            <th>Statut</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (filteredInstalments().length === 0) {
+            <tr>
+              <td colspan="7" class="empty-state">Aucun engagement trouvé</td>
+            </tr>
+          } @else {
+            @for (inst of filteredInstalments(); track $index) {
+              <tr>
+                <!-- Puits -->
+                <td>
+                  <span style="font-weight:700;color:#667eea;font-family:'Courier New',monospace;font-size:.95rem">
+                    {{ getWellCode(inst) }}
+                  </span>
+                </td>
+
+                <!-- Donateur -->
+                <td>
+                  <div style="display:flex;flex-direction:column;gap:.2rem">
+                    <span style="font-weight:600;color:#1a202c;font-size:.9rem">{{ getDonorName(inst) }}</span>
+                    <span style="font-size:.78rem;color:#999">{{ getDonorEmail(inst) }}</span>
+                  </div>
+                </td>
+
+                <!-- Source -->
+                <td>
+                  <span class="source-badge"
+                    [style.backgroundColor]="getSourceInfo(inst.source).color"
+                    [style.color]="'#fff'">
+                    @if ((inst.source ?? '') === 'GOCARDLESS') {
+                      <lucide-icon name="building-2" [size]="11" color="white"></lucide-icon>
+                    } @else {
+                      <lucide-icon name="credit-card" [size]="11" color="white"></lucide-icon>
+                    }
+                    {{ getSourceInfo(inst.source).label }}
+                  </span>
+                </td>
+
+                <!-- Progression -->
+                <td>
+                  <div style="display:flex;flex-direction:column;gap:.35rem">
+                    <div class="progress-bar-mini">
+                      <div class="progress-fill-mini" [style.width.%]="getProgress(inst)"></div>
+                    </div>
+                    <span style="font-size:.75rem;color:#555;font-weight:500">
+                      {{ getRealPaidCount(inst) }}/{{ getInstalmentCount(inst) }}
+                      ({{ getProgress(inst) }}%)
+                    </span>
+                  </div>
+                </td>
+
+                <!-- Montant -->
+                <td>
+                  <div style="display:flex;flex-direction:column;gap:.15rem">
+                    <span style="font-weight:700;color:#22c55e;font-size:.92rem">{{ getTotalPaid(inst).toFixed(2) }} €</span>
+                    <span style="font-size:.78rem;color:#aaa">/ {{ getTotalTarget(inst) }} €</span>
+                  </div>
+                </td>
+
+                <!-- Statut -->
+                <td>
+                  <span class="status-badge"
+                    [style.backgroundColor]="getStatusInfo(inst.status).color"
+                    [style.color]="'#fff'">
+                    <lucide-icon [name]="getStatusIcon(inst.status ?? '')" [size]="11" color="white"></lucide-icon>
+                    {{ getStatusInfo(inst.status).label || (inst.status ?? '—') }}
+                  </span>
+                </td>
+
+                <!-- Actions -->
+                <td>
+                  <div class="action-buttons">
+                    @if ((inst.status ?? '') !== 'COMPLETE') {
+                      <button class="btn-action btn-solder" (click)="openSolderModal(inst)" title="Confirmer un paiement Ohme">
+                        <lucide-icon name="banknote" [size]="16"></lucide-icon>
+                      </button>
+                    }
+                    <button class="btn-action btn-details" (click)="openDetail(inst)" title="Voir détails">
+                      <lucide-icon name="eye" [size]="16"></lucide-icon>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination (masquée quand un filtre est actif) -->
+    @if (totalPages() > 1 && !hasActiveFilter()) {
+      <div class="pagination">
+        <button class="pag-btn" (click)="goToPage(currentPage() - 1)" [disabled]="currentPage() === 1">
+          <lucide-icon name="chevron-left" [size]="16"></lucide-icon>
+        </button>
+        @for (p of pages(); track p) {
+          <button class="pag-btn" [class.active]="p === currentPage()" (click)="goToPage(p)">{{ p }}</button>
+        }
+        <button class="pag-btn" (click)="goToPage(currentPage() + 1)" [disabled]="currentPage() === totalPages()">
+          <lucide-icon name="chevron-right" [size]="16"></lucide-icon>
+        </button>
+      </div>
+    }
+  }
+
+</div>
+
+<!-- ════ Modal : Confirmer paiement Ohme ════════════════════════════════════ -->
+@if (showSolderModal() && selectedInst(); as inst) {
+  <div class="modal-overlay" (click)="closeSolderModal()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+
+      <div class="modal-header">
+        <h3>
+          <lucide-icon name="banknote" [size]="20"></lucide-icon>
+          Confirmer un paiement Ohme
+        </h3>
+        <button class="modal-close" (click)="closeSolderModal()">
+          <lucide-icon name="x" [size]="20"></lucide-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- Info panel -->
+        <div class="modal-info">
+          <div class="info-row">
+            <span class="info-label">Puits :</span>
+            <span class="info-value">{{ getWellCode(inst) }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Donateur :</span>
+            <span class="info-value">{{ getDonorName(inst) }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Payé :</span>
+            <span class="info-value">{{ getTotalPaid(inst).toFixed(2) }} €</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Restant :</span>
+            <span class="info-value info-value--red">{{ getSolderRemaining().toFixed(2) }} €</span>
+          </div>
+        </div>
+
+        <!-- Error -->
+        @if (solderError()) {
+          <div class="solder-error">
+            <lucide-icon name="alert-circle" [size]="14"></lucide-icon>
+            {{ solderError() }}
+          </div>
+        }
+
+        <!-- Form -->
+        <div class="form-group">
+          <label>
+            <lucide-icon name="calendar" [size]="14"></lucide-icon>
+            Date du paiement *
+          </label>
+          <input type="date" class="form-input"
+            [ngModel]="solderDate()"
+            (ngModelChange)="solderDate.set($event)"
+            required />
+        </div>
+
+        <div class="form-group">
+          <label>
+            <lucide-icon name="euro" [size]="14"></lucide-icon>
+            Montant (€) *
+          </label>
+          <input type="number" step="0.01" min="0.01" class="form-input"
+            [ngModel]="solderMontant()"
+            (ngModelChange)="solderMontant.set($event)"
+            [placeholder]="'Restant : ' + getSolderRemaining().toFixed(2) + ' €'"
+            required />
+        </div>
+
+        <div class="form-group">
+          <label>
+            <lucide-icon name="map-pin" [size]="14"></lucide-icon>
+            Source de paiement Ohme *
+          </label>
+          <select class="form-input"
+            [ngModel]="solderSourceCode()"
+            (ngModelChange)="onSolderSourceChange($event)"
+            required>
+            <option value="">— Sélectionner une source —</option>
+            @for (s of effectiveSources(); track s.id) {
+              <option [value]="s.code ?? s.id">{{ s.name }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>
+            <lucide-icon name="file-text" [size]="14"></lucide-icon>
+            Note (optionnel)
+          </label>
+          <textarea class="form-textarea" rows="2" placeholder="Commentaire sur ce paiement…"
+            [ngModel]="solderNote()"
+            (ngModelChange)="solderNote.set($event)"></textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-cancel" (click)="closeSolderModal()" [disabled]="solderLoading()">
+            Annuler
+          </button>
+          <button class="btn-confirm" (click)="confirmSolder()" [disabled]="solderLoading() || !solderSourceCode()">
+            @if (solderLoading()) {
+              <span class="btn-spinner"></span> Envoi vers Ohme…
+            } @else {
+              <lucide-icon name="circle-check-big" [size]="15"></lucide-icon>
+              Confirmer vers Ohme
+            }
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ════ Modal : Historique syncs ═══════════════════════════════════════════ -->
+@if (showSyncHistory()) {
+  <div class="modal-overlay" (click)="showSyncHistory.set(false)">
+    <div class="modal-content modal-wide" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <lucide-icon name="chart-bar" [size]="20"></lucide-icon>
+          Historique des synchronisations
+        </h3>
+        <button class="modal-close" (click)="showSyncHistory.set(false)">
+          <lucide-icon name="x" [size]="20"></lucide-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        @if (syncLogsLoading()) {
+          <div class="modal-loading"><div class="spinner"></div></div>
+        } @else if (syncLogs().length === 0) {
+          <p class="modal-empty">Aucun historique disponible</p>
+        } @else {
+          <table class="sync-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Source</th>
+                <th>Créés</th>
+                <th>Mis à jour</th>
+                <th>Erreurs</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (log of syncLogs(); track log.id) {
+                <tr>
+                  <td>{{ fmtDate(log.createdAt) }}</td>
+                  <td>
+                    <span class="source-badge"
+                      [style.backgroundColor]="getSourceInfo(log.source).color"
+                      [style.color]="'#fff'">
+                      {{ getSourceInfo(log.source).label }}
+                    </span>
+                  </td>
+                  <td class="center text-green">+{{ log.created ?? 0 }}</td>
+                  <td class="center text-blue">{{ log.updated ?? 0 }}</td>
+                  <td class="center" [class.text-red]="(log.errors ?? 0) > 0">{{ log.errors ?? 0 }}</td>
+                  <td>
+                    <span class="sync-status" [class.sync-ok]="log.status === 'OK'" [class.sync-err]="log.status === 'ERROR'">
+                      {{ log.status ?? '—' }}
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ════ Modal : Gestion doublons ═══════════════════════════════════════════ -->
+@if (showDuplicates()) {
+  <div class="modal-overlay" (click)="showDuplicates.set(false)">
+    <div class="modal-content modal-wide" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>
+          <lucide-icon name="copy" [size]="20"></lucide-icon>
+          Gestion des doublons
+        </h3>
+        <button class="modal-close" (click)="showDuplicates.set(false)">
+          <lucide-icon name="x" [size]="20"></lucide-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        @if (dupLoading()) {
+          <div class="modal-loading"><div class="spinner"></div></div>
+        } @else if (duplicates().length === 0) {
+          <div class="no-duplicates">
+            <lucide-icon name="circle-check-big" [size]="32" color="#4caf50"></lucide-icon>
+            <p>Aucun doublon détecté</p>
+          </div>
+        } @else {
+          <p class="dup-count">{{ duplicates().length }} doublon(s) détecté(s)</p>
+          @for (dup of duplicates(); track dup.id) {
+            <div class="dup-card">
+              <div class="dup-info">
+                <strong>{{ dup.donorName || dup.donorEmail || dup.id }}</strong>
+                <span class="dup-sub">{{ dup.source }} — {{ dup.wellCode || '—' }}</span>
+              </div>
+              <button class="btn-merge" (click)="mergeDuplicate(dup.keepId, dup.removeId)">
+                <lucide-icon name="merge" [size]="13"></lucide-icon>
+                Fusionner
+              </button>
+            </div>
+          }
+        }
+      </div>
+    </div>
+  </div>
+}

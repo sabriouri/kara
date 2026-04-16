@@ -1,0 +1,67 @@
+<div class="login-page">
+  <div class="login-card">
+    <!-- Logo + Titre -->
+    <div class="login-header">
+      <img src="/assets/logo-kara.png" alt="KARA" class="login-logo" />
+      <p class="login-subtitle">Plateforme de gestion interne<br />DIGNITÉ INTERNATIONAL</p>
+    </div>
+
+    <!-- Séparateur -->
+    <div class="divider"></div>
+
+    <!-- Formulaire -->
+    <form (ngSubmit)="onSubmit()" class="login-form">
+      <div class="form-group">
+        <label for="email">Adresse e-mail</label>
+        <input
+          id="email"
+          type="email"
+          placeholder="votre@email.com"
+          [value]="email()"
+          (input)="email.set($any($event.target).value)"
+          autocomplete="email"
+          required
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="password">Mot de passe</label>
+        <input
+          id="password"
+          type="password"
+          placeholder="••••••••••"
+          [value]="password()"
+          (input)="password.set($any($event.target).value)"
+          autocomplete="current-password"
+          required
+        />
+      </div>
+
+      @if (error()) {
+        <div class="error-msg">{{ error() }}</div>
+      }
+
+      <button type="submit" class="btn-login" [disabled]="loading()">
+        @if (loading()) {
+          <span class="spinner-sm"></span> Connexion en cours...
+        } @else {
+          Se connecter
+        }
+      </button>
+    </form>
+
+    <!-- Comptes de test -->
+    <div class="test-accounts">
+      <p class="test-title">Accès de démonstration</p>
+      <div class="test-list">
+        @for (account of testAccounts; track account.email) {
+          <button class="test-item" (click)="fillAccount(account.email, account.pwd)">
+            <span class="test-role">{{ account.role }}</span>
+            <span class="test-email">{{ account.email }}</span>
+          </button>
+        }
+      </div>
+      <p class="test-pwd">Mot de passe : <strong>password123</strong></p>
+    </div>
+  </div>
+</div>

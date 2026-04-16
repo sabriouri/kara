@@ -1,0 +1,202 @@
+<div class="page-content">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Projets</h1>
+      <p class="text-muted">{{ filtered().length }} projet(s)</p>
+    </div>
+    <button class="btn btn-primary" (click)="openCreateModal()">
+      <lucide-icon name="plus" [size]="16"></lucide-icon>
+      Nouveau projet
+    </button>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters-bar">
+    <input
+      class="filter-input"
+      type="text"
+      placeholder="Rechercher un projet…"
+      [ngModel]="filterSearch()"
+      (ngModelChange)="filterSearch.set($event)"
+    />
+    <select class="filter-select" [ngModel]="filterStatus()" (ngModelChange)="filterStatus.set($event)">
+      @for (opt of statusOptions; track opt.value) {
+        <option [value]="opt.value">{{ opt.label }}</option>
+      }
+    </select>
+  </div>
+
+  <!-- Content -->
+  @if (loading()) {
+    <div class="loading-wrapper"><div class="spinner"></div></div>
+  } @else if (filtered().length === 0) {
+    <div class="empty-state">
+      <div class="icon"><lucide-icon name="layers" [size]="32"></lucide-icon></div>
+      <p>{{ filterSearch() || filterStatus() ? 'Aucun projet ne correspond à votre recherche' : 'Aucun projet créé pour l\'instant' }}</p>
+    </div>
+  } @else {
+    <div class="projects-grid">
+      @for (p of filtered(); track p.id) {
+        <div class="project-card" [class.overdue]="isOverdue(p)" (click)="goToProject(p.id)">
+
+          <!-- Card Header -->
+          <div class="card-top">
+            <div class="project-emoji-circle" [style.background]="p.color + '22'" [style.border-color]="p.color + '44'">
+              <span class="project-emoji">{{ p.emoji || '🚀' }}</span>
+            </div>
+            <div class="card-top-right">
+              <span class="status-badge"
+                [style.color]="getStatusInfo(p.status).color"
+                [style.background]="getStatusInfo(p.status).bg">
+                {{ getStatusInfo(p.status).label }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Title & description -->
+          <h3 class="project-name">{{ p.title }}</h3>
+          @if (p.description) {
+            <p class="project-desc">{{ p.description }}</p>
+          }
+
+          <!-- Progress -->
+          <div class="progress-section">
+            <div class="progress-header">
+              <span class="progress-label">Progression</span>
+              <span class="progress-pct" [style.color]="getProgressColor(p.progress)">{{ p.progress }}%</span>
+            </div>
+            <div class="progress-track">
+              <div
+                class="progress-fill"
+                [style.width.%]="p.progress"
+                [style.background]="getProgressColor(p.progress)"
+              ></div>
+            </div>
+          </div>
+
+          <!-- Stats row -->
+          <div class="card-stats">
+            <div class="stat-item">
+              <lucide-icon name="layers" [size]="13"></lucide-icon>
+              <span>{{ p._count.milestones }} jalons</span>
+            </div>
+            <div class="stat-item">
+              <lucide-icon name="users" [size]="13"></lucide-icon>
+              <span>{{ p._count.members }} membres</span>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="card-footer">
+            <!-- Owner -->
+            @if (p.owner) {
+              <div class="owner-info">
+                <div class="owner-avatar" [style.background]="p.color">
+                  {{ getInitials(p.owner.firstName, p.owner.lastName) }}
+                </div>
+                <span class="owner-name">{{ p.owner.firstName }} {{ p.owner.lastName }}</span>
+              </div>
+            } @else {
+              <div></div>
+            }
+
+            <!-- Target date -->
+            @if (p.targetDate) {
+              <span class="date-badge" [class.date-overdue]="isOverdue(p)">
+                <lucide-icon name="calendar" [size]="12"></lucide-icon>
+                {{ formatDate(p.targetDate) }}
+              </span>
+            }
+          </div>
+
+        </div>
+      }
+    </div>
+  }
+
+</div>
+
+<!-- Create modal -->
+@if (createModal()) {
+  <div class="modal-backdrop" (click)="closeCreateModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Nouveau projet</h2>
+        <button class="modal-close" (click)="closeCreateModal()">
+          <lucide-icon name="x" [size]="18"></lucide-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+
+        <!-- Emoji & color preview -->
+        <div class="emoji-preview-row">
+          <div class="emoji-preview-circle" [style.background]="newColor() + '22'" [style.border-color]="newColor()">
+            <span>{{ newEmoji() }}</span>
+          </div>
+          <div class="preview-labels">
+            <span class="preview-label">Icône du projet</span>
+            <span class="preview-sub">Choisissez un emoji et une couleur</span>
+          </div>
+        </div>
+
+        <!-- Emoji picker -->
+        <div class="form-group">
+          <label>Emoji</label>
+          <div class="emoji-picker">
+            @for (e of emojiOptions; track e) {
+              <button type="button" class="emoji-btn" [class.selected]="newEmoji() === e" (click)="newEmoji.set(e)">{{ e }}</button>
+            }
+          </div>
+        </div>
+
+        <!-- Color picker -->
+        <div class="form-group">
+          <label>Couleur</label>
+          <div class="color-picker">
+            @for (c of colorOptions; track c) {
+              <button type="button" class="color-swatch" [style.background]="c" [class.selected]="newColor() === c" (click)="newColor.set(c)">
+                @if (newColor() === c) {
+                  <lucide-icon name="check" [size]="12" style="color:#fff"></lucide-icon>
+                }
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Titre du projet *</label>
+          <input type="text" placeholder="Ex: Construction puits — Mali nord"
+            [ngModel]="newTitle()" (ngModelChange)="newTitle.set($event)" />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea rows="3" placeholder="Décrivez le projet…"
+            [ngModel]="newDescription()" (ngModelChange)="newDescription.set($event)"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Statut</label>
+            <select [ngModel]="newStatus()" (ngModelChange)="newStatus.set($event)">
+              @for (opt of statusOptions; track opt.value) {
+                @if (opt.value) { <option [value]="opt.value">{{ opt.label }}</option> }
+              }
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Date cible</label>
+            <input type="date" [ngModel]="newTargetDate()" (ngModelChange)="newTargetDate.set($event)" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeCreateModal()">Annuler</button>
+        <button class="btn btn-primary" (click)="submitCreate()" [disabled]="createLoading() || !newTitle().trim()">
+          @if (createLoading()) { <span class="btn-spinner"></span> }
+          Créer le projet
+        </button>
+      </div>
+    </div>
+  </div>
+}

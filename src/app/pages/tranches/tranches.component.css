@@ -1,0 +1,338 @@
+.filter-select {
+  padding: 9px 14px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 10px;
+  font-size: 13px;
+  background: #fff;
+  cursor: pointer;
+  outline: none;
+  min-width: 170px;
+  font-family: 'Inter', sans-serif;
+}
+
+/* ── Kanban ──────────────────────────────── */
+.kanban {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) { .kanban { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px)  { .kanban { grid-template-columns: 1fr; } }
+
+/* ── Colonne ─────────────────────────────── */
+.kanban-col {
+  background: #F8FAFC;
+  border-radius: 14px;
+  border: 1px solid #E2E8F0;
+  overflow: hidden;
+}
+
+.col-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #E2E8F0;
+  border-top: 3px solid;
+  background: #fff;
+}
+
+.col-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.col-label {
+  font-family: 'Poppins', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0D1B2A;
+  flex: 1;
+}
+
+.col-count {
+  padding: 2px 9px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'Poppins', sans-serif;
+}
+
+.col-cards {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 120px;
+  transition: background 200ms;
+}
+
+/* CDK feedback */
+.col-cards.cdk-drop-list-dragging {
+  background: #EFF6FF;
+}
+.col-cards.cdk-drop-list-receiving {
+  background: #F0FDF4;
+  outline: 2px dashed #52AE4F;
+  outline-offset: -4px;
+  border-radius: 6px;
+}
+
+.col-empty {
+  text-align: center;
+  padding: 32px 12px;
+  font-size: 12px;
+  color: #CBD5E1;
+  font-style: italic;
+  border: 2px dashed #E2E8F0;
+  border-radius: 8px;
+}
+
+/* ── Carte tranche ───────────────────────── */
+.tranche-card {
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #E2E8F0;
+  padding: 12px 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  transition: box-shadow 200ms, transform 200ms;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: default;
+}
+
+.tranche-card:hover {
+  box-shadow: 0 4px 14px rgba(0,0,0,.09);
+  transform: translateY(-1px);
+}
+
+/* CDK drag states */
+.cdk-drag-animating {
+  transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.cdk-drag-preview {
+  background: #fff;
+  border-radius: 10px;
+  border: 1.5px solid #1AABE2;
+  box-shadow: 0 12px 32px rgba(26,171,226,0.22);
+  padding: 12px 14px;
+  cursor: default;
+}
+
+.drag-placeholder {
+  background: #E8F6FD;
+  border: 2px dashed #1AABE2;
+  border-radius: 10px;
+  min-height: 64px;
+  opacity: 0.5;
+}
+
+/* ── Card fields ──────────────────────────── */
+.tc-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ref {
+  background: #F1F5F9;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  color: #475569;
+  font-family: monospace;
+}
+
+.tc-amount {
+  font-family: 'Poppins', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0D1B2A;
+}
+
+.tc-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  line-height: 1.4;
+}
+
+.tc-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tc-country {
+  font-size: 11.5px;
+  color: #64748B;
+  background: #F1F5F9;
+  padding: 2px 8px;
+  border-radius: 5px;
+}
+
+.tc-linked {
+  font-size: 11px;
+  font-weight: 600;
+  color: #52AE4F;
+  background: #EBF7EA;
+  padding: 2px 8px;
+  border-radius: 5px;
+}
+
+/* ── Tags row ─────────────────────────────── */
+.tc-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  border: none;
+  line-height: 1.7;
+}
+
+.tag-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+  opacity: 0.45;
+  color: inherit;
+  transition: opacity 150ms;
+}
+.tag-remove:hover { opacity: 1; }
+
+/* ── Bouton + ─────────────────────────────── */
+.tag-add-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.tag-add-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px dashed #CBD5E1;
+  background: none;
+  color: #94A3B8;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 150ms, color 150ms, background 150ms;
+  padding: 0;
+}
+.tag-add-btn:hover {
+  border-color: #1AABE2;
+  color: #1AABE2;
+  background: #E8F6FD;
+  border-style: solid;
+}
+
+/* ── Popover tag ─────────────────────────── */
+.tag-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  background: #fff;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.13);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 190px;
+}
+
+.tag-popover-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #0D1B2A;
+  outline: none;
+  font-family: 'Inter', sans-serif;
+  box-sizing: border-box;
+  transition: border-color 150ms;
+}
+.tag-popover-input:focus { border-color: #1AABE2; }
+.tag-popover-input::placeholder { color: #94A3B8; }
+
+.color-swatches {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.color-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 150ms, border-color 150ms;
+  flex-shrink: 0;
+}
+.color-dot:hover { transform: scale(1.2); }
+.color-dot.selected {
+  border-color: #0D1B2A;
+  transform: scale(1.18);
+}
+
+.tag-confirm-btn {
+  background: #1AABE2;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 5px 0;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms;
+  font-family: 'Inter', sans-serif;
+  width: 100%;
+}
+.tag-confirm-btn:hover { background: #1190C5; }
+
+/* ── Actions ─────────────────────────────── */
+.tc-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.btn-advance {
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1AABE2;
+  cursor: pointer;
+  padding: 5px 0;
+  transition: color 150ms;
+  font-family: 'Inter', sans-serif;
+}
+.btn-advance:hover { color: #1190C5; }

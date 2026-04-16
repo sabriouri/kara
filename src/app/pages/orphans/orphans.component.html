@@ -1,0 +1,582 @@
+<div class="page-content">
+
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Orphelins</h1>
+      @if (stats()) {
+        <div class="stats-chips">
+          <span class="chip chip--green">{{ stats()!.actifs }} actifs</span>
+          <span class="chip chip--yellow">{{ stats()!.enAttente }} en attente</span>
+          <span class="chip chip--red">{{ stats()!.suspendus }} suspendus</span>
+          <span class="chip chip--gray">{{ stats()!.total }} total</span>
+        </div>
+      }
+    </div>
+    <div class="header-actions">
+      @if (tab() === 'orphelins') {
+        <button class="btn btn-primary" (click)="showNewOrphan.set(true)">
+          <lucide-icon name="plus" [size]="15"></lucide-icon> Orphelin
+        </button>
+      }
+      <button class="btn btn-sync" [class.syncing]="syncing()" (click)="syncOhme()" [disabled]="syncing()">
+        <lucide-icon name="refresh-cw" [size]="15"></lucide-icon>
+        {{ syncing() ? 'Sync...' : 'Sync Ohme' }}
+      </button>
+      @if (tab() === 'attente') {
+        <button class="btn btn-primary" (click)="showNewWaitlist.set(true)">
+          <lucide-icon name="plus" [size]="15"></lucide-icon> Candidat parrain
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- ── Tabs ────────────────────────────────────────────────────────────── -->
+  <div class="tabs-bar">
+    <button class="tab-btn" [class.active]="tab() === 'orphelins'" (click)="tab.set('orphelins')">
+      <lucide-icon name="users" [size]="14"></lucide-icon> Orphelins ({{ stats()?.total ?? orphans().length }})
+    </button>
+    <button class="tab-btn" [class.active]="tab() === 'attente'" (click)="tab.set('attente')">
+      <lucide-icon name="clock" [size]="14"></lucide-icon> Liste d'attente ({{ waitlist().length }})
+    </button>
+  </div>
+
+  <!-- ══ Tab : Orphelins ═══════════════════════════════════════════════════ -->
+  @if (tab() === 'orphelins') {
+
+    <!-- Filters -->
+    <div class="filters-row">
+      <div class="search-wrap">
+        <lucide-icon name="search" [size]="15" class="search-icon"></lucide-icon>
+        <input class="filter-input" placeholder="Rechercher par nom, code…"
+          [value]="search()" (input)="search.set($any($event.target).value)" />
+      </div>
+      <select class="filter-select" [value]="filterPayment()" (change)="filterPayment.set($any($event.target).value)">
+        <option value="">Tous les paiements</option>
+        @for (p of paymentOptions; track p) {
+          <option [value]="p">{{ paymentLabel(p) }}</option>
+        }
+      </select>
+      <select class="filter-select" [value]="filterStatus()" (change)="filterStatus.set($any($event.target).value)">
+        <option value="">Tous les statuts</option>
+        @for (s of statusOptions; track s) {
+          <option [value]="s">{{ statusLabel(s) }}</option>
+        }
+      </select>
+    </div>
+
+    <!-- Table -->
+    @if (loading()) {
+      <div class="loading-wrapper"><div class="spinner"></div></div>
+    } @else {
+      <div class="table-wrapper">
+        <table class="orphans-table">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Enfant</th>
+              <th>Âge</th>
+              <th>Parrain / Marraine</th>
+              <th>Contact parrain</th>
+              <th>Montant</th>
+              <th>Statut</th>
+              <th>Paiement Ohme</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (o of filteredOrphans(); track o.id) {
+              <tr [class.row-suspended]="o.status === 'SUSPENDU'">
+                <td class="cell-code">{{ o.code ?? '—' }}</td>
+                <td class="cell-name">
+                  <button class="btn-link" (click)="openDetail(o)">{{ o.firstName }} {{ o.lastName }}</button>
+                </td>
+                <td>{{ calcAge(o.birthDate) !== null ? (calcAge(o.birthDate) + ' ans') : '—' }}</td>
+                <td>
+                  @if (o.sponsor) { {{ sponsorName(o) }} }
+                  @else { <span class="no-data">— Non parrainé</span> }
+                </td>
+                <td class="cell-contact">
+                  @if (o.sponsor?.email) { <span>{{ o.sponsor!.email }}</span> }
+                  @if (o.sponsor?.phone) { <span class="phone">{{ o.sponsor!.phone }}</span> }
+                </td>
+                <td>{{ o.monthlyAmount ? (o.monthlyAmount + '€/mois') : '—' }}</td>
+                <td>
+                  <span class="status-badge"
+                    [style.background]="statusColor(o.status) + '22'"
+                    [style.color]="statusColor(o.status)">
+                    {{ statusLabel(o.status) }}
+                  </span>
+                </td>
+                <td class="cell-ohme">
+                  @if (getOhme(o); as sync) {
+                    <span class="payment-badge"
+                      [style.background]="paymentColor(sync.paymentStatus) + '22'"
+                      [style.color]="paymentColor(sync.paymentStatus)"
+                      [title]="sync.daysLate ? sync.daysLate + 'j de retard' : ''">
+                      {{ paymentLabel(sync.paymentStatus) }}
+                    </span>
+                    @if (sync.lastPaymentDate) {
+                      <span class="ohme-date">{{ formatDate(sync.lastPaymentDate) }}{{ sync.lastPaymentAmount ? ' — ' + sync.lastPaymentAmount + '€' : '' }}</span>
+                    } @else {
+                      <span class="ohme-date">Aucun paiement trouvé</span>
+                    }
+                  } @else if (o.sponsor) {
+                    <span class="payment-badge" style="background:#6B728022;color:#6B7280">Non vérifié</span>
+                  } @else {
+                    <span class="no-data">—</span>
+                  }
+                </td>
+                <td class="cell-actions">
+                  <button class="action-btn" title="Détail" (click)="openDetail(o)">
+                    <lucide-icon name="eye" [size]="14"></lucide-icon>
+                  </button>
+                  <button class="action-btn" title="Assigner parrain" (click)="assignOrphan.set(o); assignMode.set('waitlist'); assignWaitlistId.set('')">
+                    <lucide-icon name="user-plus" [size]="14"></lucide-icon>
+                  </button>
+                  @if (o.status !== 'SUSPENDU') {
+                    <button class="action-btn action-danger" title="Suspendre" (click)="suspendOrphan.set(o); suspendReason.set('')">
+                      <lucide-icon name="pause" [size]="14"></lucide-icon>
+                    </button>
+                  } @else {
+                    <button class="action-btn action-success" title="Réactiver" (click)="reactivate(o)">
+                      <lucide-icon name="play" [size]="14"></lucide-icon>
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        @if (filteredOrphans().length === 0) {
+          <div class="empty-state">Aucun orphelin trouvé</div>
+        }
+      </div>
+    }
+  }
+
+  <!-- ══ Tab : Liste d'attente ══════════════════════════════════════════════ -->
+  @if (tab() === 'attente') {
+    <div class="waitlist-summary">
+      <span class="wl-count">{{ waitlist().length }} candidats</span> en attente d'assignation
+      @if (orphans().filter(o => o.status === 'EN_ATTENTE').length > 0) {
+        <span class="orphans-dispo"> · {{ orphans().filter(o => o.status === 'EN_ATTENTE').length }} orphelins disponibles</span>
+      }
+    </div>
+
+    <div class="table-wrapper">
+      <table class="orphans-table">
+        <thead>
+          <tr>
+            <th>Candidat parrain</th>
+            <th>Email</th>
+            <th>Téléphone</th>
+            <th>Nb souhaité</th>
+            <th>Statut / Suivi</th>
+            <th>Date contact</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (w of waitlist(); track w.id) {
+            <tr>
+              <td class="cell-name">{{ w.fullName }}</td>
+              <td>{{ w.email ?? '—' }}</td>
+              <td>{{ w.phone ?? '—' }}</td>
+              <td class="center">{{ w.nbSouhaite ?? '—' }}</td>
+              <td>
+                @if (editingWaitlistId() === w.id) {
+                  <div class="statut-edit">
+                    <input class="statut-input" [value]="editingStatut()" (input)="editingStatut.set($any($event.target).value)" placeholder="Statut…" />
+                    <button class="btn-save-sm" (click)="saveWaitlistStatut(w.id)"><lucide-icon name="check" [size]="12"></lucide-icon></button>
+                    <button class="btn-cancel-sm" (click)="editingWaitlistId.set(null)"><lucide-icon name="x" [size]="12"></lucide-icon></button>
+                  </div>
+                } @else {
+                  <span class="statut-text" (click)="editingWaitlistId.set(w.id); editingStatut.set(w.statut ?? '')" title="Cliquer pour modifier">
+                    @if (w.statut) { {{ w.statut }} }
+                    @else { <span class="no-data">— Cliquer pour ajouter</span> }
+                  </span>
+                }
+              </td>
+              <td>{{ formatDate(w.dateContact) }}</td>
+              <td class="cell-actions">
+                @if (w.notes) { <span class="notes-indicator" [title]="w.notes"><lucide-icon name="file-text" [size]="13"></lucide-icon></span> }
+                <button class="action-btn action-danger" title="Supprimer" (click)="deleteWaitlist(w.id)">
+                  <lucide-icon name="trash-2" [size]="14"></lucide-icon>
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      @if (waitlist().length === 0) {
+        <div class="empty-state">Aucun candidat en liste d'attente</div>
+      }
+    </div>
+  }
+
+</div>
+
+<!-- ══ Modal : Détail orphelin ══════════════════════════════════════════════ -->
+@if (selectedOrphan()) {
+  <div class="modal-overlay" (click)="selectedOrphan.set(null)">
+    <div class="modal-box modal-large" (click)="$event.stopPropagation()">
+
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title">{{ selectedOrphan()!.firstName }} {{ selectedOrphan()!.lastName }}</h2>
+          <span class="orphan-code">{{ selectedOrphan()!.code }}</span>
+        </div>
+        <div class="modal-header-actions">
+          <button class="btn-edit-toggle" (click)="detailEditing.set(!detailEditing())">
+            @if (detailEditing()) {
+              <lucide-icon name="x" [size]="13"></lucide-icon> Annuler
+            } @else {
+              <lucide-icon name="pencil" [size]="13"></lucide-icon> Modifier
+            }
+          </button>
+          <button class="modal-close" (click)="selectedOrphan.set(null)">
+            <lucide-icon name="x" [size]="18"></lucide-icon>
+          </button>
+        </div>
+      </div>
+
+      <div class="detail-grid">
+
+        <!-- Colonne gauche : infos enfant -->
+        <div class="detail-section">
+          <h3 class="section-label">Informations enfant</h3>
+          @if (detailEditing()) {
+            <div class="form-row">
+              <label>Prénom</label>
+              <input class="det-input" [value]="detailForm().firstName" (input)="updateDetailForm('firstName', $any($event.target).value)" />
+            </div>
+            <div class="form-row">
+              <label>Nom</label>
+              <input class="det-input" [value]="detailForm().lastName" (input)="updateDetailForm('lastName', $any($event.target).value)" />
+            </div>
+            <div class="form-row">
+              <label>Date naissance</label>
+              <input class="det-input" type="date" [value]="detailForm().birthDate" (input)="updateDetailForm('birthDate', $any($event.target).value)" />
+            </div>
+            <div class="form-row">
+              <label>Montant mensuel (€)</label>
+              <input class="det-input" type="number" [value]="detailForm().monthlyAmount" (input)="updateDetailForm('monthlyAmount', +$any($event.target).value)" />
+            </div>
+            <div class="form-row">
+              <label>Notes</label>
+              <textarea class="det-input det-textarea" rows="3" [value]="detailForm().notes" (input)="updateDetailForm('notes', $any($event.target).value)"></textarea>
+            </div>
+            <button class="btn btn-primary" (click)="saveDetail()" [disabled]="detailSaving()">
+              {{ detailSaving() ? 'Sauvegarde…' : 'Enregistrer' }}
+            </button>
+          } @else {
+            <div class="detail-row"><span class="dr-label">Prénom</span><strong>{{ selectedOrphan()!.firstName }}</strong></div>
+            <div class="detail-row"><span class="dr-label">Nom</span><strong>{{ selectedOrphan()!.lastName || '—' }}</strong></div>
+            <div class="detail-row"><span class="dr-label">Âge</span><strong>{{ calcAge(selectedOrphan()!.birthDate) !== null ? (calcAge(selectedOrphan()!.birthDate) + ' ans') : '—' }}</strong></div>
+            <div class="detail-row"><span class="dr-label">Genre</span><strong>{{ selectedOrphan()!.gender === 'M' ? 'Masculin' : 'Féminin' }}</strong></div>
+            <div class="detail-row"><span class="dr-label">Pays</span><strong>{{ selectedOrphan()!.country ?? '—' }}</strong></div>
+            <div class="detail-row">
+              <span class="dr-label">Statut</span>
+              <span class="status-badge"
+                [style.background]="statusColor(selectedOrphan()!.status) + '22'"
+                [style.color]="statusColor(selectedOrphan()!.status)">
+                {{ statusLabel(selectedOrphan()!.status) }}
+              </span>
+            </div>
+            <div class="detail-row"><span class="dr-label">Montant</span><strong>{{ selectedOrphan()!.monthlyAmount ?? '—' }}€/mois</strong></div>
+            @if (selectedOrphan()!.notes) {
+              <div class="notes-block">
+                <span class="dr-label">Notes</span>
+                <p>{{ selectedOrphan()!.notes }}</p>
+              </div>
+            }
+          }
+        </div>
+
+        <!-- Colonne droite : parrain + paiement Ohme -->
+        <div class="detail-right-col">
+
+          <!-- Parrain -->
+          <div class="detail-section">
+            <h3 class="section-label">Parrain / Marraine</h3>
+            @if (selectedOrphan()!.sponsor) {
+              <div class="detail-row"><span class="dr-label">Nom</span><strong>{{ sponsorName(selectedOrphan()!) }}</strong></div>
+              @if (selectedOrphan()!.sponsor!.email) {
+                <div class="detail-row"><span class="dr-label">Email</span><strong>{{ selectedOrphan()!.sponsor!.email }}</strong></div>
+              }
+              @if (selectedOrphan()!.sponsor!.phone) {
+                <div class="detail-row"><span class="dr-label">Tél</span><strong>{{ selectedOrphan()!.sponsor!.phone }}</strong></div>
+              }
+            } @else {
+              <div class="no-sponsor-block">
+                <span><lucide-icon name="user-x" [size]="14"></lucide-icon> Aucun parrain assigné</span>
+                <p>Cet orphelin est en attente de parrainage.</p>
+              </div>
+            }
+          </div>
+
+          <!-- Paiement Ohme -->
+          @if (selectedOrphan()!.sponsor) {
+            <div class="detail-section">
+              <h3 class="section-label">Paiement Ohme</h3>
+              @if (getOhme(selectedOrphan()!); as sync) {
+                <div class="ohme-status-row">
+                  <span class="payment-badge"
+                    [style.background]="paymentColor(sync.paymentStatus) + '22'"
+                    [style.color]="paymentColor(sync.paymentStatus)">
+                    {{ paymentLabel(sync.paymentStatus) }}{{ sync.daysLate ? ' (' + sync.daysLate + 'j)' : '' }}
+                  </span>
+                </div>
+                @if (isAmountAlert(sync)) {
+                  <div class="amount-alert">
+                    <span><lucide-icon name="triangle-alert" [size]="16"></lucide-icon></span>
+                    <div>
+                      <div class="alert-title">Montant anormal</div>
+                      <div class="alert-sub">Dernier paiement : <strong>{{ sync.lastPaymentAmount }}€</strong> — ne correspond pas à un parrainage standard</div>
+                    </div>
+                  </div>
+                }
+                @if (sync.lastPaymentDate) {
+                  <div class="detail-row"><span class="dr-label">Dernier paiement</span><strong>{{ formatDate(sync.lastPaymentDate) }}</strong></div>
+                }
+                @if (sync.lastPaymentAmount) {
+                  <div class="detail-row"><span class="dr-label">Montant</span><strong>{{ sync.lastPaymentAmount }}€</strong></div>
+                }
+                @if (sync.totalPaidOrphans) {
+                  <div class="detail-row"><span class="dr-label">Total versé</span><strong>{{ sync.totalPaidOrphans }}€</strong></div>
+                }
+                @if (sync.ohmeEmail) {
+                  <div class="detail-row"><span class="dr-label">Email Ohme</span><strong>{{ sync.ohmeEmail }}</strong></div>
+                }
+              } @else {
+                <p class="no-data">Non synchronisé avec Ohme</p>
+              }
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Fichiers réseau -->
+      <div class="files-section">
+        <div class="files-header">
+          <h3 class="section-label">
+            <lucide-icon name="folder" [size]="15"></lucide-icon> Dossier enfant
+            @if (detailFiles()?.organisation) {
+              <span class="org-badge">{{ detailFiles()!.organisation }}</span>
+            }
+          </h3>
+          <button class="btn-refresh" (click)="loadDetailFiles(selectedOrphan()!.id)">↻ Actualiser</button>
+        </div>
+
+        @if (detailFilesLoading()) {
+          <p class="files-status">Recherche du dossier…</p>
+        } @else if (!detailFiles()) {
+          <!-- nothing -->
+        } @else if (!detailFiles()!.found) {
+          <p class="files-status files-status--error"><lucide-icon name="triangle-alert" [size]="14"></lucide-icon> Dossier introuvable pour «&nbsp;{{ selectedOrphan()!.firstName }} {{ selectedOrphan()!.lastName }}&nbsp;»</p>
+        } @else if (detailFiles()!.files.length === 0) {
+          <p class="files-status">Dossier vide</p>
+        } @else {
+          <div class="files-list">
+            @for (f of detailFiles()!.files; track f.name) {
+              @if (f.type === 'folder') {
+                <div class="file-folder-label">
+                  <lucide-icon name="folder-open" [size]="14"></lucide-icon> {{ f.name }}
+                </div>
+                @for (cf of (f.children ?? []); track cf.name) {
+                  <button class="file-item file-item--indent" (click)="downloadFile(selectedOrphan()!.id, cf.path)">
+                    <lucide-icon name="file" [size]="13"></lucide-icon>
+                    <span class="file-name">{{ cf.name }}</span>
+                    <span class="file-ext">{{ cf.ext?.replace('.','')?.toUpperCase() }}</span>
+                  </button>
+                }
+              } @else {
+                <button class="file-item" (click)="downloadFile(selectedOrphan()!.id, f.path)">
+                  <lucide-icon name="file" [size]="13"></lucide-icon>
+                  <span class="file-name">{{ f.name }}</span>
+                  <span class="file-ext">{{ f.ext?.replace('.','')?.toUpperCase() }}</span>
+                </button>
+              }
+            }
+          </div>
+        }
+      </div>
+
+    </div>
+  </div>
+}
+
+<!-- ══ Modal : Suspension ═══════════════════════════════════════════════════ -->
+@if (suspendOrphan()) {
+  <div class="modal-overlay" (click)="suspendOrphan.set(null)">
+    <div class="modal-box modal-sm" (click)="$event.stopPropagation()">
+      <h2 class="modal-title">Suspendre le parrainage</h2>
+      <p class="modal-subtitle">
+        <strong>{{ suspendOrphan()!.firstName }} {{ suspendOrphan()!.lastName }}</strong>
+        @if (suspendOrphan()!.sponsor) { · parrain : {{ sponsorName(suspendOrphan()!) }} }
+      </p>
+      <div class="modal-field">
+        <label>Raison de la suspension</label>
+        <textarea class="modal-textarea" rows="3" [value]="suspendReason()" (input)="suspendReason.set($any($event.target).value)"
+          placeholder="Ex: Arrêt de paiement, demande du parrain…"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" (click)="suspendOrphan.set(null)">Annuler</button>
+        <button class="btn btn-danger" (click)="confirmSuspend()">Suspendre</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ══ Modal : Assigner parrain ═════════════════════════════════════════════ -->
+@if (assignOrphan()) {
+  <div class="modal-overlay" (click)="assignOrphan.set(null)">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <h2 class="modal-title">Assigner un parrain</h2>
+      <p class="modal-subtitle">Orphelin : <strong>{{ assignOrphan()!.firstName }} {{ assignOrphan()!.lastName }}</strong></p>
+
+      <div class="assign-mode-toggle">
+        <button [class.active]="assignMode() === 'waitlist'" (click)="assignMode.set('waitlist')">Depuis la liste d'attente</button>
+        <button [class.active]="assignMode() === 'manual'" (click)="assignMode.set('manual')">Saisie manuelle</button>
+      </div>
+
+      @if (assignMode() === 'waitlist') {
+        <div class="modal-field">
+          <label>Choisir un candidat</label>
+          @if (waitlist().length === 0) {
+            <p class="no-data">Aucun candidat en liste d'attente</p>
+          } @else {
+            <select class="modal-select" [value]="assignWaitlistId()" (change)="assignWaitlistId.set($any($event.target).value)">
+              <option value="">— Sélectionner —</option>
+              @for (w of waitlist(); track w.id) {
+                <option [value]="w.id">{{ w.fullName }}{{ w.email ? ' (' + w.email + ')' : '' }} — {{ w.nbSouhaite }} parrainage(s)</option>
+              }
+            </select>
+          }
+        </div>
+      }
+
+      @if (assignMode() === 'manual') {
+        <div class="modal-row-2">
+          <div class="modal-field">
+            <label>Prénom *</label>
+            <input class="modal-input" [value]="assignManualForm().firstName" (input)="updateAssignManualForm('firstName', $any($event.target).value)" />
+          </div>
+          <div class="modal-field">
+            <label>Nom</label>
+            <input class="modal-input" [value]="assignManualForm().lastName" (input)="updateAssignManualForm('lastName', $any($event.target).value)" />
+          </div>
+        </div>
+        <div class="modal-field">
+          <label>Email</label>
+          <input class="modal-input" type="email" [value]="assignManualForm().email" (input)="updateAssignManualForm('email', $any($event.target).value)" />
+        </div>
+        <div class="modal-field">
+          <label>Téléphone</label>
+          <input class="modal-input" [value]="assignManualForm().phone" (input)="updateAssignManualForm('phone', $any($event.target).value)" />
+        </div>
+      }
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" (click)="assignOrphan.set(null)">Annuler</button>
+        <button class="btn btn-primary" (click)="confirmAssign()">Assigner</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ══ Modal : Nouvel orphelin ═══════════════════════════════════════════════ -->
+@if (showNewOrphan()) {
+  <div class="modal-overlay" (click)="showNewOrphan.set(false)">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <h2 class="modal-title">Nouvel orphelin</h2>
+      <div class="modal-row-2">
+        <div class="modal-field">
+          <label>Prénom *</label>
+          <input class="modal-input" [value]="newOrphanForm().firstName" (input)="updateNewOrphanForm('firstName', $any($event.target).value)" />
+        </div>
+        <div class="modal-field">
+          <label>Nom</label>
+          <input class="modal-input" [value]="newOrphanForm().lastName" (input)="updateNewOrphanForm('lastName', $any($event.target).value)" />
+        </div>
+      </div>
+      <div class="modal-row-2">
+        <div class="modal-field">
+          <label>Date naissance</label>
+          <input class="modal-input" type="date" [value]="newOrphanForm().birthDate" (input)="updateNewOrphanForm('birthDate', $any($event.target).value)" />
+        </div>
+        <div class="modal-field">
+          <label>Genre</label>
+          <select class="modal-select" [value]="newOrphanForm().gender" (change)="updateNewOrphanForm('gender', $any($event.target).value)">
+            <option value="M">Masculin</option>
+            <option value="F">Féminin</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-row-2">
+        <div class="modal-field">
+          <label>Pays</label>
+          <input class="modal-input" [value]="newOrphanForm().country" (input)="updateNewOrphanForm('country', $any($event.target).value)" />
+        </div>
+        <div class="modal-field">
+          <label>Montant mensuel (€)</label>
+          <input class="modal-input" type="number" [value]="newOrphanForm().monthlyAmount" (input)="updateNewOrphanForm('monthlyAmount', +$any($event.target).value)" />
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" (click)="showNewOrphan.set(false)">Annuler</button>
+        <button class="btn btn-primary" (click)="createOrphan()" [disabled]="newOrphanSaving()">
+          {{ newOrphanSaving() ? '…' : 'Créer' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ══ Modal : Nouveau candidat liste d'attente ══════════════════════════════ -->
+@if (showNewWaitlist()) {
+  <div class="modal-overlay" (click)="showNewWaitlist.set(false)">
+    <div class="modal-box" (click)="$event.stopPropagation()">
+      <h2 class="modal-title">Nouveau candidat parrain</h2>
+      <div class="modal-field">
+        <label>Nom complet *</label>
+        <input class="modal-input" [value]="newWaitlistForm().fullName" (input)="updateNewWaitlistForm('fullName', $any($event.target).value)" />
+      </div>
+      <div class="modal-row-2">
+        <div class="modal-field">
+          <label>Email</label>
+          <input class="modal-input" type="email" [value]="newWaitlistForm().email" (input)="updateNewWaitlistForm('email', $any($event.target).value)" />
+        </div>
+        <div class="modal-field">
+          <label>Téléphone</label>
+          <input class="modal-input" [value]="newWaitlistForm().phone" (input)="updateNewWaitlistForm('phone', $any($event.target).value)" />
+        </div>
+      </div>
+      <div class="modal-row-2">
+        <div class="modal-field">
+          <label>Nb parrainages souhaités</label>
+          <input class="modal-input" type="number" min="1" [value]="newWaitlistForm().nbSouhaite" (input)="updateNewWaitlistForm('nbSouhaite', +$any($event.target).value)" />
+        </div>
+        <div class="modal-field">
+          <label>Date contact</label>
+          <input class="modal-input" type="date" [value]="newWaitlistForm().dateContact" (input)="updateNewWaitlistForm('dateContact', $any($event.target).value)" />
+        </div>
+      </div>
+      <div class="modal-field">
+        <label>Statut / Suivi</label>
+        <input class="modal-input" placeholder="Ex: Mail envoyé, en attente réponse…" [value]="newWaitlistForm().statut" (input)="updateNewWaitlistForm('statut', $any($event.target).value)" />
+      </div>
+      <div class="modal-field">
+        <label>Notes</label>
+        <textarea class="modal-textarea" rows="2" [value]="newWaitlistForm().notes" (input)="updateNewWaitlistForm('notes', $any($event.target).value)" placeholder="Notes supplémentaires…"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" (click)="showNewWaitlist.set(false)">Annuler</button>
+        <button class="btn btn-primary" (click)="createWaitlist()" [disabled]="newWaitlistSaving()">
+          {{ newWaitlistSaving() ? '…' : 'Ajouter' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

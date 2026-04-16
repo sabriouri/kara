@@ -1,0 +1,612 @@
+<div class="wl-root">
+
+  <!-- Hidden file input for CSV -->
+  <input #csvInput type="file" accept=".csv" style="display:none" (change)="onFileSelected($event)" />
+
+  <!-- Header -->
+  <div class="wl-header">
+    <div class="wl-header-left">
+      <h1 class="wl-title">Puits</h1>
+      <span class="wl-total-badge">{{ total() }} projet(s)</span>
+    </div>
+    <div class="wl-header-actions">
+      <button class="btn-import" (click)="openImport()">
+        <lucide-icon name="file-up" [size]="16"></lucide-icon>
+        Importer CSV
+      </button>
+      <button class="btn-primary" (click)="openCreate()">
+        <lucide-icon name="plus" [size]="16"></lucide-icon>
+        Nouveau puits
+      </button>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="wl-filters">
+    <div class="wl-search-wrap">
+      <lucide-icon name="search" [size]="15" class="wl-search-icon"></lucide-icon>
+      <input
+        class="wl-search"
+        type="text"
+        placeholder="Rechercher par code, donateur, pays…"
+        [value]="search()"
+        (input)="search.set($any($event.target).value); applyFilters()"
+      />
+    </div>
+
+    <select class="wl-select" [value]="projectStatus()" (change)="projectStatus.set($any($event.target).value); applyFilters()">
+      @for (s of projectStatuses; track s.value) {
+        <option [value]="s.value">{{ s.label }}</option>
+      }
+    </select>
+
+    <select class="wl-select" [value]="rdStatus()" (change)="rdStatus.set($any($event.target).value); applyFilters()">
+      @for (s of rdStatuses; track s.value) {
+        <option [value]="s.value">{{ s.label }}</option>
+      }
+    </select>
+
+    <input
+      class="wl-select"
+      type="text"
+      placeholder="Pays…"
+      [value]="country()"
+      (input)="country.set($any($event.target).value); applyFilters()"
+      style="width:120px"
+    />
+
+    <div class="wl-limit-wrap">
+      <span class="wl-limit-label">Afficher</span>
+      @for (l of limitOptions; track l) {
+        <button
+          class="wl-limit-btn"
+          [class.active]="limit() === l"
+          (click)="onLimitChange(l)"
+        >{{ l }}</button>
+      }
+    </div>
+  </div>
+
+  <!-- Results info -->
+  @if (!loading() && total() > 0) {
+    <div class="wl-info-bar">
+      Affichage de {{ fromIndex() }} à {{ toIndex() }} sur {{ total() }} puits
+    </div>
+  }
+
+  <!-- Loading -->
+  @if (loading()) {
+    <div class="wl-loading">
+      <div class="spinner"></div>
+      <span>Chargement…</span>
+    </div>
+  } @else if (wells().length === 0) {
+    <div class="wl-empty">
+      <lucide-icon name="droplets" [size]="52" [strokeWidth]="1.2"></lucide-icon>
+      <p>Aucun puits trouvé</p>
+      <button class="btn-primary" (click)="openCreate()">Créer un puits</button>
+    </div>
+  } @else {
+    <!-- Cards grid -->
+    <div class="wl-grid">
+      @for (w of wells(); track w.id) {
+        <a class="wl-card" [routerLink]="['/wells', w.id]">
+
+          <!-- Card top: code + statuses -->
+          <div class="wl-card-top">
+            <div class="wl-card-code">
+              <lucide-icon name="droplet" [size]="14"></lucide-icon>
+              {{ w.code }}
+            </div>
+            <div class="wl-card-badges">
+              <span class="wl-badge" [style.background]="getProjectStatusColor(w.projectStatus) + '22'" [style.color]="getProjectStatusColor(w.projectStatus)">
+                {{ getProjectStatusLabel(w.projectStatus) }}
+              </span>
+              <span class="wl-badge" [style.background]="getRdStatusColor(w.rdStatus) + '22'" [style.color]="getRdStatusColor(w.rdStatus)">
+                {{ getRdStatusLabel(w.rdStatus) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Plaque -->
+          @if (w.plaque) {
+            <div class="wl-card-plaque">{{ w.plaque }}</div>
+          }
+
+          <!-- Location -->
+          @if (w.country) {
+            <div class="wl-card-location">
+              <lucide-icon name="map-pin" [size]="12"></lucide-icon>
+              <span>{{ w.country }}{{ w.region ? ' – ' + w.region : '' }}{{ w.zone ? ' · ' + w.zone : '' }}</span>
+            </div>
+          }
+
+          <!-- Donor -->
+          @if (getDonorName(w)) {
+            <div class="wl-card-donor">
+              <lucide-icon name="user" [size]="12"></lucide-icon>
+              {{ getDonorName(w) }}
+            </div>
+          }
+
+          <!-- Finance -->
+          <div class="wl-card-finance">
+            <div class="wl-finance-row">
+              <span>Objectif</span>
+              <strong>{{ fmt(w.targetAmount) }}</strong>
+            </div>
+            <div class="wl-progress-track">
+              <div class="wl-progress-fill" [style.width.%]="progress(w)" [style.background]="getProjectStatusColor(w.projectStatus)"></div>
+            </div>
+            <div class="wl-finance-row wl-finance-sub">
+              <span class="wl-paid">{{ fmt(w.paidAmount) }} encaissé</span>
+              <span class="wl-pct">{{ progress(w) }}%</span>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="wl-card-footer">
+            @if (w.isInstalment) {
+              <span class="wl-chip wl-chip-instalment">Mensualisation</span>
+            }
+            @if (w._count?.tickets) {
+              <span class="wl-chip">
+                <lucide-icon name="ticket" [size]="11"></lucide-icon>
+                {{ w._count!.tickets }}
+              </span>
+            }
+            @if (w._count?.media) {
+              <span class="wl-chip">
+                <lucide-icon name="image" [size]="11"></lucide-icon>
+                {{ w._count!.media }}
+              </span>
+            }
+            @if (w.campaign) {
+              <span class="wl-chip wl-chip-campaign">{{ w.campaign }}</span>
+            }
+          </div>
+        </a>
+      }
+    </div>
+
+    <!-- Pagination -->
+    @if (totalPages() > 1) {
+      <div class="wl-pagination">
+        <button class="wl-page-btn" [disabled]="page() === 1" (click)="goToPage(page() - 1)">
+          <lucide-icon name="chevron-left" [size]="16"></lucide-icon>
+        </button>
+        @for (p of pages(); track p) {
+          <button class="wl-page-btn" [class.active]="p === page()" (click)="goToPage(p)">{{ p }}</button>
+        }
+        <button class="wl-page-btn" [disabled]="page() === totalPages()" (click)="goToPage(page() + 1)">
+          <lucide-icon name="chevron-right" [size]="16"></lucide-icon>
+        </button>
+      </div>
+    }
+  }
+</div>
+
+<!-- ── Create Modal ──────────────────────────────────── -->
+@if (showCreateModal()) {
+  <div class="modal-overlay" (click)="closeCreate()">
+    <div class="modal-box modal-wide" (click)="$event.stopPropagation()">
+
+      <div class="modal-head">
+        <h2 class="modal-title">Nouveau puits</h2>
+        <button class="modal-close" (click)="closeCreate()">
+          <lucide-icon name="x" [size]="20"></lucide-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- Zone selector -->
+        <div class="zone-selector">
+          <button class="zone-btn" [class.active]="form().zone === 'ASIE'" (click)="setZone('ASIE')">
+            <lucide-icon name="globe" [size]="18"></lucide-icon>
+            Asie
+          </button>
+          <button class="zone-btn" [class.active]="form().zone === 'AFRIQUE'" (click)="setZone('AFRIQUE')">
+            <lucide-icon name="globe" [size]="18"></lucide-icon>
+            Afrique
+          </button>
+        </div>
+
+        <div class="form-sections">
+
+          <!-- Identification -->
+          <div class="form-section">
+            <h3 class="form-section-title">Identification</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Code</label>
+                <input class="form-input" type="text" placeholder="Ex: DI-2024-001"
+                  [value]="form().code"
+                  (input)="setFormField('code', $any($event.target).value)" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Plaque</label>
+                <input class="form-input" type="text" placeholder="Texte de la plaque"
+                  [value]="form().plaque"
+                  (input)="setFormField('plaque', $any($event.target).value)" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Campagne</label>
+                <input class="form-input" type="text" placeholder="Nom de la campagne"
+                  [value]="form().campaign"
+                  (input)="setFormField('campaign', $any($event.target).value)" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Localisation -->
+          <div class="form-section">
+            <h3 class="form-section-title">Localisation</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Pays</label>
+                <input class="form-input" type="text" placeholder="Ex: Pakistan"
+                  [value]="form().country"
+                  (input)="setFormField('country', $any($event.target).value)" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Région</label>
+                <input class="form-input" type="text" placeholder="Région"
+                  [value]="form().region"
+                  (input)="setFormField('region', $any($event.target).value)" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Finance -->
+          <div class="form-section">
+            <h3 class="form-section-title">Finance</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Montant cible (€)</label>
+                <input class="form-input" type="number" placeholder="370"
+                  [value]="form().targetAmount"
+                  (input)="setFormField('targetAmount', $any($event.target).value)" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Mode de paiement</label>
+                <select class="form-input"
+                  [value]="form().paymentMode"
+                  (change)="setFormField('paymentMode', $any($event.target).value)">
+                  <option value="">Choisir…</option>
+                  <option value="VIREMENT">Virement</option>
+                  <option value="CHEQUE">Chèque</option>
+                  <option value="ESPECES">Espèces</option>
+                  <option value="CB">Carte bancaire</option>
+                  <option value="PRELEVEMENT">Prélèvement</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Date de don</label>
+                <input class="form-input" type="date"
+                  [value]="form().donationDate"
+                  (input)="setFormField('donationDate', $any($event.target).value)" />
+              </div>
+              <div class="form-group form-check-group">
+                <label class="form-check-label">
+                  <input type="checkbox"
+                    [checked]="form().isInstalment"
+                    (change)="setFormField('isInstalment', $any($event.target).checked)" />
+                  Paiement en mensualisation
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Statuts -->
+          <div class="form-section">
+            <h3 class="form-section-title">Statuts</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Statut projet</label>
+                <select class="form-input"
+                  [value]="form().projectStatus"
+                  (change)="setFormField('projectStatus', $any($event.target).value)">
+                  @for (s of projectStatuses.slice(1); track s.value) {
+                    <option [value]="s.value">{{ s.label }}</option>
+                  }
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Statut RD</label>
+                <select class="form-input"
+                  [value]="form().rdStatus"
+                  (change)="setFormField('rdStatus', $any($event.target).value)">
+                  @for (s of rdStatuses.slice(1); track s.value) {
+                    <option [value]="s.value">{{ s.label }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Donateur -->
+          <div class="form-section">
+            <h3 class="form-section-title">Donateur</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Prénom</label>
+                <input class="form-input" type="text" placeholder="Prénom du donateur"
+                  [value]="form().donorFirstName"
+                  (input)="setFormField('donorFirstName', $any($event.target).value)" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Nom</label>
+                <input class="form-input" type="text" placeholder="Nom du donateur"
+                  [value]="form().donorLastName"
+                  (input)="setFormField('donorLastName', $any($event.target).value)" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email</label>
+                <input class="form-input" type="email" placeholder="email@exemple.com"
+                  [value]="form().donorEmail"
+                  (input)="setFormField('donorEmail', $any($event.target).value)" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Téléphone</label>
+                <input class="form-input" type="tel" placeholder="+33 6 00 00 00 00"
+                  [value]="form().donorPhone"
+                  (input)="setFormField('donorPhone', $any($event.target).value)" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Notes -->
+          <div class="form-section">
+            <div class="form-group">
+              <label class="form-label">Notes</label>
+              <textarea class="form-input form-textarea" rows="3" placeholder="Notes internes…"
+                [value]="form().notes"
+                (input)="setFormField('notes', $any($event.target).value)"></textarea>
+            </div>
+          </div>
+
+        </div>
+
+        @if (createError()) {
+          <div class="form-error">
+            <lucide-icon name="alert-circle" [size]="14"></lucide-icon>
+            {{ createError() }}
+          </div>
+        }
+      </div>
+
+      <div class="modal-foot">
+        <button class="btn-secondary" (click)="closeCreate()">Annuler</button>
+        <button class="btn-primary" (click)="submitCreate()" [disabled]="createLoading()">
+          @if (createLoading()) { <div class="btn-spinner"></div> }
+          Créer le puits
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ── Import CSV Modal ───────────────────────────── -->
+@if (showImportModal()) {
+  <div class="modal-overlay" (click)="closeImport()">
+    <div class="modal-box modal-import" (click)="$event.stopPropagation()">
+
+      <div class="modal-head">
+        <div class="modal-title-row">
+          <lucide-icon name="file-up" [size]="18" style="color:#3b82f6"></lucide-icon>
+          <h2 class="modal-title">Importer des puits via CSV</h2>
+        </div>
+        @if (importStage() !== 'importing') {
+          <button class="modal-close" (click)="closeImport()">
+            <lucide-icon name="x" [size]="20"></lucide-icon>
+          </button>
+        }
+      </div>
+
+      <!-- Stage indicator -->
+      <div class="import-steps">
+        <div class="import-step" [class.active]="importStage() === 'upload'" [class.done]="importStage() !== 'upload'">
+          <span class="import-step-dot">1</span>
+          <span>Fichier</span>
+        </div>
+        <div class="import-step-line"></div>
+        <div class="import-step" [class.active]="importStage() === 'preview'" [class.done]="importStage() === 'importing' || importStage() === 'done'">
+          <span class="import-step-dot">2</span>
+          <span>Prévisualisation</span>
+        </div>
+        <div class="import-step-line"></div>
+        <div class="import-step" [class.active]="importStage() === 'importing' || importStage() === 'done'">
+          <span class="import-step-dot">3</span>
+          <span>Résultat</span>
+        </div>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- ── Stage: upload ── -->
+        @if (importStage() === 'upload') {
+          <div
+            class="import-drop-zone"
+            [class.drag-over]="isDragOver"
+            (dragover)="onDragOver($event)"
+            (dragleave)="isDragOver = false"
+            (drop)="onDrop($event)"
+            (click)="triggerFileInput()"
+          >
+            <div class="import-drop-icon">
+              <lucide-icon name="upload-cloud" [size]="42"></lucide-icon>
+            </div>
+            <p class="import-drop-title">Glisser-déposer votre fichier CSV</p>
+            <p class="import-drop-sub">ou <span class="import-browse-link">cliquer pour parcourir</span></p>
+            <p class="import-drop-hint">Format accepté : .csv — encodage UTF-8 recommandé</p>
+          </div>
+
+          <div class="import-template-row">
+            <button class="btn-template" (click)="$event.stopPropagation(); downloadTemplate()">
+              <lucide-icon name="download" [size]="14"></lucide-icon>
+              Télécharger le modèle CSV
+            </button>
+            <span class="import-cols-hint">
+              Colonnes : <code>code</code>, <code>zone</code> (ASIE/AFRIQUE), <code>country</code>,
+              <code>targetAmount</code>, <code>donorFirstName</code>, <code>donorLastName</code>…
+            </span>
+          </div>
+
+          @if (importFileErrors().length) {
+            <div class="form-error" style="margin-top:12px">
+              <lucide-icon name="alert-circle" [size]="14"></lucide-icon>
+              {{ importFileErrors()[0] }}
+            </div>
+          }
+        }
+
+        <!-- ── Stage: preview ── -->
+        @if (importStage() === 'preview') {
+          <div class="import-preview-header">
+            <div class="import-file-name">
+              <lucide-icon name="file-text" [size]="15" style="color:#3b82f6"></lucide-icon>
+              {{ importFileName() }}
+            </div>
+            <div class="import-stats-row">
+              <span class="import-stat import-stat-ok">
+                <lucide-icon name="circle-check-big" [size]="13"></lucide-icon>
+                {{ validImportRows().length }} valides
+              </span>
+              @if (invalidImportRows().length) {
+                <span class="import-stat import-stat-err">
+                  <lucide-icon name="circle-x" [size]="13"></lucide-icon>
+                  {{ invalidImportRows().length }} invalides
+                </span>
+              }
+            </div>
+          </div>
+
+          <div class="import-preview-wrap">
+            <table class="import-table">
+              <thead>
+                <tr>
+                  <th class="import-th-line">#</th>
+                  <th>Code</th>
+                  <th>Zone</th>
+                  <th>Pays</th>
+                  <th>Donateur</th>
+                  <th>Montant</th>
+                  <th>Statut projet</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of importRows(); track row['_lineNumber']) {
+                  <tr [class.import-row-invalid]="!row['_valid']">
+                    <td class="import-td-num">{{ row['_lineNumber'] }}</td>
+                    <td><strong>{{ row['code'] || '—' }}</strong></td>
+                    <td>
+                      <span class="import-zone-badge" [class.import-zone-asie]="(row['zone'] || '').toUpperCase() === 'ASIE'" [class.import-zone-afrique]="(row['zone'] || '').toUpperCase() === 'AFRIQUE'">
+                        {{ row['zone'] || '—' }}
+                      </span>
+                    </td>
+                    <td>{{ row['country'] || row['pays'] || '—' }}</td>
+                    <td class="import-td-donor">
+                      {{ (row['donorfirstname'] || row['donorFirstName'] || row['prénom'] || '') + ' ' + (row['donorlastname'] || row['donorLastName'] || row['nom'] || '') | slice:0:22 }}
+                    </td>
+                    <td class="import-td-amount">
+                      {{ (row['targetamount'] || row['targetAmount'] || '370') }}€
+                    </td>
+                    <td class="import-td-status">
+                      {{ row['projectstatus'] || row['projectStatus'] || 'PLANIFIE' }}
+                    </td>
+                    <td class="import-td-status-icon">
+                      @if (!row['_valid']) {
+                        <div class="import-err-cell" [title]="row['_errors'].join(', ')">
+                          <lucide-icon name="triangle-alert" [size]="13"></lucide-icon>
+                          <span class="import-err-text">{{ row['_errors'].join(' · ') }}</span>
+                        </div>
+                      } @else {
+                        <lucide-icon name="circle-check-big" [size]="15" style="color:#10b981"></lucide-icon>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          @if (validImportRows().length === 0) {
+            <div class="form-error" style="margin-top:12px">
+              <lucide-icon name="alert-circle" [size]="14"></lucide-icon>
+              Aucune ligne valide à importer. Vérifiez que les colonnes <code>code</code> et <code>zone</code> sont renseignées.
+            </div>
+          }
+        }
+
+        <!-- ── Stage: importing ── -->
+        @if (importStage() === 'importing') {
+          <div class="import-progress-wrap">
+            <div class="import-progress-icon">
+              <lucide-icon name="loader" [size]="36" style="color:#3b82f6" class="import-spin"></lucide-icon>
+            </div>
+            <p class="import-progress-label">Import en cours…</p>
+            <div class="import-progress-track">
+              <div class="import-progress-fill" [style.width.%]="importProgress()"></div>
+            </div>
+            <span class="import-progress-pct">{{ importProgress() }}%</span>
+          </div>
+        }
+
+        <!-- ── Stage: done ── -->
+        @if (importStage() === 'done') {
+          <div class="import-done">
+            @if ((importResults()?.created ?? 0) > 0) {
+              <div class="import-done-success">
+                <lucide-icon name="circle-check-big" [size]="52" style="color:#10b981"></lucide-icon>
+                <p class="import-done-count">{{ importResults()!.created }} puits créé{{ importResults()!.created > 1 ? 's' : '' }}</p>
+                <p class="import-done-sub">Ajoutés avec succès à la liste des puits</p>
+              </div>
+            } @else {
+              <div class="import-done-empty">
+                <lucide-icon name="circle-x" [size]="52" style="color:#ef4444"></lucide-icon>
+                <p class="import-done-count">Aucun puits créé</p>
+              </div>
+            }
+            @if (importResults()?.errors?.length) {
+              <div class="import-done-errors">
+                <p class="import-done-errors-title">
+                  <lucide-icon name="triangle-alert" [size]="14"></lucide-icon>
+                  {{ importResults()!.errors.length }} erreur(s)
+                </p>
+                @for (e of importResults()!.errors; track e.code) {
+                  <div class="import-done-err-row">
+                    <code>{{ e.code }}</code>
+                    <span>{{ e.message }}</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
+
+      </div>
+
+      <div class="modal-foot">
+        @if (importStage() === 'upload') {
+          <button class="btn-secondary" (click)="closeImport()">Annuler</button>
+        } @else if (importStage() === 'preview') {
+          <button class="btn-secondary" (click)="importStage.set('upload')">
+            <lucide-icon name="arrow-left" [size]="15"></lucide-icon>
+            Retour
+          </button>
+          <button class="btn-primary" (click)="startImport()" [disabled]="validImportRows().length === 0">
+            <lucide-icon name="upload" [size]="15"></lucide-icon>
+            Importer {{ validImportRows().length }} puits
+          </button>
+        } @else if (importStage() === 'done') {
+          <button class="btn-primary" (click)="closeImport()">
+            <lucide-icon name="check" [size]="15"></lucide-icon>
+            Fermer
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+}

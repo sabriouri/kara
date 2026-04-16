@@ -1,0 +1,174 @@
+<div class="db-root" [class.mounted]="mounted()">
+
+  <!-- Hero (greeting + weather) -->
+  <section class="db-hero">
+    <div class="db-hero-top">
+      <div class="db-greeting">
+        <!-- Icône météo dynamique -->
+        <div class="db-weather-icon" [ngClass]="weather()?.animClass ?? 'weather-spin'">
+          @if (weather(); as w) {
+            <lucide-icon [name]="w.icon" [size]="34" [style.color]="w.color"></lucide-icon>
+          } @else {
+            <lucide-icon name="sun" [size]="34" style="color:#fbbf24"></lucide-icon>
+          }
+        </div>
+        <!-- Texte greeting -->
+        <div>
+          <h1 class="db-greeting-text">{{ greeting }}, {{ auth.user()?.firstName }} !</h1>
+          <div class="db-greeting-meta">
+            <span class="db-greeting-date">{{ today }}</span>
+            @if (weather(); as w) {
+              <span class="db-weather-badge">
+                <span class="db-weather-sep">·</span>
+                <span class="db-weather-city">Villenoy</span>
+                <span class="db-weather-temp">{{ w.temp }}°C</span>
+                <span class="db-weather-label">{{ w.label }}</span>
+              </span>
+            }
+          </div>
+        </div>
+      </div>
+      <div class="db-hero-badge">
+        <span class="db-role">{{ auth.user()?.role?.name }}</span>
+        <span class="db-dept">{{ auth.user()?.team?.department?.name || 'Dignité International' }}</span>
+      </div>
+    </div>
+
+    <div class="db-hero-actions">
+      <span class="db-pole-chip">{{ poleName() }}</span>
+    </div>
+  </section>
+
+  <!-- Widget content -->
+  <div class="db-content">
+
+    @if (loading()) {
+      <div class="db-loading">
+        <div class="spinner"></div>
+        <span>Chargement des données…</span>
+      </div>
+    } @else {
+
+      @if (wellsStats()) {
+        <!-- Taux d'encaissement -->
+        <div class="db-card">
+          <div class="db-card-head">
+            <span>Taux d'encaissement</span>
+            <span class="db-card-badge">{{ paidPct() }}%</span>
+          </div>
+          <div class="db-progress-wrap db-progress-wrap--light">
+            <div class="db-progress-meta db-progress-meta--light">
+              <span>{{ fmt(wellsStats()!.paidAmount) }} encaissés</span>
+              <span>{{ fmt(wellsStats()!.remainingAmount) }} restants</span>
+            </div>
+            <div class="db-progress-track db-progress-track--light">
+              <div class="db-progress-fill" [style.width.%]="paidPct()"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats grid -->
+        <div class="db-stats-grid">
+          <button class="db-stat-card" style="--c:#3b82f6" (click)="navigate('/wells')">
+            <div class="db-stat-icon"><lucide-icon name="droplets" [size]="22"></lucide-icon></div>
+            <div class="db-stat-body">
+              <div class="db-stat-label">Total Puits</div>
+              <div class="db-stat-value">{{ fmtN(wellsStats()!.total) }}</div>
+              <div class="db-stat-sub">projets actifs</div>
+            </div>
+          </button>
+          <button class="db-stat-card" style="--c:#8b5cf6" (click)="navigate('/mensualisations')">
+            <div class="db-stat-icon"><lucide-icon name="euro" [size]="22"></lucide-icon></div>
+            <div class="db-stat-body">
+              <div class="db-stat-label">Collecté</div>
+              <div class="db-stat-value">{{ fmt(wellsStats()!.totalAmount) }}</div>
+              <div class="db-stat-sub">montant total</div>
+            </div>
+          </button>
+          <button class="db-stat-card" style="--c:#10b981" (click)="navigate('/mensualisations')">
+            <div class="db-stat-icon"><lucide-icon name="circle-check-big" [size]="22"></lucide-icon></div>
+            <div class="db-stat-body">
+              <div class="db-stat-label">Encaissé</div>
+              <div class="db-stat-value">{{ fmt(wellsStats()!.paidAmount) }}</div>
+              <div class="db-stat-sub">{{ paidPct() }}% du total</div>
+            </div>
+          </button>
+          <button class="db-stat-card" style="--c:#f59e0b" (click)="navigate('/mensualisations')">
+            <div class="db-stat-icon"><lucide-icon name="clock" [size]="22"></lucide-icon></div>
+            <div class="db-stat-body">
+              <div class="db-stat-label">Restant</div>
+              <div class="db-stat-value">{{ fmt(wellsStats()!.remainingAmount) }}</div>
+              <div class="db-stat-sub">à encaisser</div>
+            </div>
+          </button>
+        </div>
+
+        <!-- Charts grid: status + geo side by side -->
+        <div class="db-charts-grid">
+          <div class="db-card">
+            <div class="db-card-head">
+              <span>Statuts des projets</span>
+              <span class="db-card-badge">{{ fmtN(wellsStats()!.total) }}</span>
+            </div>
+            <div class="db-bars">
+              @if (wellsStats()!.byStatus.length) {
+                @for (item of wellsStats()!.byStatus; track item.projectStatus) {
+                  <div class="db-bar-row">
+                    <div class="db-bar-lbl">
+                      <span class="db-dot" [style.background]="getStatusInfo(item.projectStatus).color"></span>
+                      <span>{{ getStatusInfo(item.projectStatus).label }}</span>
+                    </div>
+                    <div class="db-bar-track">
+                      <div class="db-bar-fill" [style.width.%]="statusPct(item)" [style.background]="getStatusInfo(item.projectStatus).color"></div>
+                    </div>
+                    <span class="db-bar-n">{{ fmtN(item._count.id) }}</span>
+                  </div>
+                }
+              } @else {
+                <p class="db-empty">Aucune donnée</p>
+              }
+            </div>
+          </div>
+
+          <div class="db-card">
+            <div class="db-card-head">
+              <span>Répartition géographique</span>
+              <span class="db-card-badge">Top pays</span>
+            </div>
+            <div class="db-bars">
+              @if (wellsStats()!.byCountry.length) {
+                @for (item of wellsStats()!.byCountry.slice(0, 8); track item.country) {
+                  <div class="db-bar-row">
+                    <div class="db-bar-lbl"><span>{{ item.country || 'Non attribué' }}</span></div>
+                    <div class="db-bar-track">
+                      <div class="db-bar-fill" [style.width.%]="countryPct(item)" [style.background]="item.country ? '#3b82f6' : '#ef4444'"></div>
+                    </div>
+                    <span class="db-bar-n">{{ fmtN(item._count.id) }}</span>
+                  </div>
+                }
+              } @else {
+                <p class="db-empty">Aucune donnée</p>
+              }
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- ── Quick actions (all poles) ────────────────────────────────────── -->
+      <div class="db-card">
+        <div class="db-card-head"><span>Accès rapides</span></div>
+        <div class="db-quick-grid">
+          @for (a of quickActions(); track currentPole() + '_' + $index) {
+            <button class="db-quick" [style.--c]="a.color" (click)="navigate(a.path)">
+              <span class="db-quick-icon"><lucide-icon [name]="a.icon" [size]="22"></lucide-icon></span>
+              <span class="db-quick-label">{{ a.label }}</span>
+              <span class="db-quick-sub">{{ a.sub }}</span>
+            </button>
+          }
+        </div>
+      </div>
+
+    }
+  </div>
+
+</div>

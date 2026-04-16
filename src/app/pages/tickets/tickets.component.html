@@ -1,0 +1,219 @@
+<div class="page-content">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Tickets</h1>
+      <p class="text-muted">{{ tickets().length }} ticket(s) au total</p>
+    </div>
+    <button class="btn btn-primary" (click)="openCreateModal()">
+      <lucide-icon name="plus" [size]="16"></lucide-icon>
+      Nouveau Ticket
+    </button>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters-bar">
+    <input
+      class="filter-input"
+      type="text"
+      placeholder="Rechercher (titre, code…)"
+      [ngModel]="filterSearch()"
+      (ngModelChange)="filterSearch.set($event)"
+      (keydown.enter)="applyFilters()"
+    />
+    <select class="filter-select" [ngModel]="filterCategory()" (ngModelChange)="filterCategory.set($event); applyFilters()">
+      @for (opt of categoryOptions; track opt.value) {
+        <option [value]="opt.value">{{ opt.label }}</option>
+      }
+    </select>
+    <select class="filter-select" [ngModel]="filterPriority()" (ngModelChange)="filterPriority.set($event); applyFilters()">
+      @for (opt of priorityOptions; track opt.value) {
+        <option [value]="opt.value">{{ opt.label }}</option>
+      }
+    </select>
+    <select class="filter-select" [ngModel]="filterStatus()" (ngModelChange)="filterStatus.set($event); applyFilters()">
+      @for (opt of statusOptions; track opt.value) {
+        <option [value]="opt.value">{{ opt.label }}</option>
+      }
+    </select>
+    <button class="btn btn-secondary btn-sm" (click)="applyFilters()">Filtrer</button>
+  </div>
+
+  <!-- List -->
+  @if (loading()) {
+    <div class="loading-wrapper"><div class="spinner"></div></div>
+  } @else if (tickets().length === 0) {
+    <div class="empty-state">
+      <lucide-icon name="ticket" [size]="52" [strokeWidth]="1.2" class="empty-icon"></lucide-icon>
+      @if (filterSearch() || filterCategory() || filterPriority() || filterStatus()) {
+        <p>Aucun ticket ne correspond aux filtres</p>
+      } @else {
+        <p>Aucun ticket créé pour l'instant</p>
+        <button class="btn btn-primary btn-sm" (click)="openCreateModal()">Créer le premier ticket</button>
+      }
+    </div>
+  } @else {
+    <div class="ticket-list">
+      @for (t of tickets(); track t.id) {
+        <div class="ticket-card" (click)="navigateToTicket(t.id)" role="button" tabindex="0" (keydown.enter)="navigateToTicket(t.id)">
+
+          <!-- Top row: category left, badges right -->
+          <div class="tc-top">
+            <div class="tc-category">
+              <span class="category-icon">
+                <lucide-icon [name]="getCategoryIcon(t.category)" [size]="14"></lucide-icon>
+              </span>
+              <span class="category-name">{{ getCategoryLabel(t.category) }}</span>
+            </div>
+            <div class="tc-badges">
+              <span class="prio-badge" [ngClass]="getPriorityClass(t.priority)">{{ getPriorityLabel(t.priority) }}</span>
+              <span class="badge" [ngClass]="getStatusClass(t.status)">{{ getStatusLabel(t.status) }}</span>
+            </div>
+          </div>
+
+          <!-- Title -->
+          <h3 class="tc-title">{{ t.title }}</h3>
+
+          <!-- Description preview (2 lines truncated) -->
+          @if (t.description) {
+            <p class="tc-description">{{ t.description }}</p>
+          }
+
+          <!-- Footer row -->
+          <div class="tc-footer">
+            <div class="tc-meta">
+              <!-- Assigned user avatar/name -->
+              <div class="meta-user">
+                <div class="user-avatar-xs">{{ getUserInitials(t.assignedTo) }}</div>
+                <span class="meta-text">
+                  @if (t.assignedTo) {
+                    {{ getUserName(t.assignedTo) }}
+                  } @else {
+                    <span class="text-muted">Non assigné</span>
+                  }
+                </span>
+              </div>
+
+              <!-- Well -->
+              @if (t.well || t.wellCode) {
+                <span class="meta-item">
+                  <lucide-icon name="droplet" [size]="12"></lucide-icon>
+                  {{ getWellName(t) }}
+                </span>
+              }
+
+              <!-- Due date -->
+              @if (t.dueDate) {
+                <span class="meta-item">
+                  <lucide-icon name="calendar" [size]="12"></lucide-icon>
+                  {{ formatDate(t.dueDate) }}
+                </span>
+              }
+
+              <!-- Comments count -->
+              @if (t.comments && t.comments.length > 0) {
+                <span class="meta-item text-muted">
+                  <lucide-icon name="message-square" [size]="12"></lucide-icon>
+                  {{ t.comments.length }}
+                </span>
+              }
+            </div>
+          </div>
+
+        </div>
+      }
+    </div>
+  }
+
+</div>
+
+<!-- Create modal -->
+@if (createModal()) {
+  <div class="modal-backdrop" (click)="closeCreateModal()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Nouveau ticket</h2>
+        <button class="modal-close" (click)="closeCreateModal()">×</button>
+      </div>
+      <div class="modal-body">
+
+        <div class="form-group">
+          <label>Titre *</label>
+          <input type="text" placeholder="Titre du ticket…"
+            [ngModel]="newTitle()"
+            (ngModelChange)="newTitle.set($event)" />
+        </div>
+
+        <div class="form-group">
+          <label>Description</label>
+          <textarea rows="4" placeholder="Décrivez le problème ou la demande…"
+            [ngModel]="newDescription()"
+            (ngModelChange)="newDescription.set($event)"></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Catégorie</label>
+            <select [ngModel]="newCategory()" (ngModelChange)="newCategory.set($event)">
+              <option value="">-- Sélectionner --</option>
+              @for (opt of categoryOptions; track opt.value) {
+                @if (opt.value) {
+                  <option [value]="opt.value">{{ opt.label }}</option>
+                }
+              }
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Priorité</label>
+            <select [ngModel]="newPriority()" (ngModelChange)="newPriority.set($event)">
+              @for (opt of priorityOptions; track opt.value) {
+                @if (opt.value) {
+                  <option [value]="opt.value">{{ opt.label }}</option>
+                }
+              }
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Assigné à</label>
+            <select [ngModel]="newAssignedToId()" (ngModelChange)="newAssignedToId.set($event)"
+              [disabled]="modalUsersLoading()">
+              <option value="">Non assigné</option>
+              @for (u of modalUsers(); track u.id) {
+                <option [value]="u.id">{{ u.firstName }} {{ u.lastName }}</option>
+              }
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Puits</label>
+            <select [ngModel]="newWellId()" (ngModelChange)="newWellId.set($event)"
+              [disabled]="modalWellsLoading()">
+              <option value="">Aucun puits</option>
+              @for (w of modalWells(); track w.id) {
+                <option [value]="w.id">{{ w.code }}{{ w.name ? ' – ' + w.name : '' }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Date limite</label>
+          <input type="date"
+            [ngModel]="newDueDate()"
+            (ngModelChange)="newDueDate.set($event)" />
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeCreateModal()">Annuler</button>
+        <button class="btn btn-primary" (click)="submitCreate()" [disabled]="createLoading() || !newTitle().trim()">
+          @if (createLoading()) { <span class="btn-spinner"></span> }
+          Créer le ticket
+        </button>
+      </div>
+    </div>
+  </div>
+}

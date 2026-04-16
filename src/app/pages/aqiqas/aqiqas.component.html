@@ -1,0 +1,197 @@
+<div class="page-content">
+
+  <!-- ── Header ── -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Aqiqas</h1>
+      <p class="text-muted" style="margin-top:4px">Gestion des sacrifices d'aqiqa</p>
+    </div>
+  </div>
+
+  <!-- ── Stats cards ── -->
+  <div class="stats-row">
+    @if (statsLoading()) {
+      @for (i of [1,2,3]; track i) {
+        <div class="stat-card skeleton"></div>
+      }
+    } @else if (stats()) {
+      <div class="stat-card">
+        <div class="stat-icon-wrap" style="background:#E8F6FD">
+          <lucide-icon name="bird" [size]="20" style="color:#1AABE2"></lucide-icon>
+        </div>
+        <div class="stat-body">
+          <span class="stat-value">{{ stats()!.total }}</span>
+          <span class="stat-label">Total</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon-wrap" style="background:#FEF3C7">
+          <lucide-icon name="clock" [size]="20" style="color:#F59E0B"></lucide-icon>
+        </div>
+        <div class="stat-body">
+          <span class="stat-value">{{ stats()!.enAttente }}</span>
+          <span class="stat-label">En attente</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon-wrap" style="background:#EBF7EA">
+          <lucide-icon name="circle-check-big" [size]="20" style="color:#52AE4F"></lucide-icon>
+        </div>
+        <div class="stat-body">
+          <span class="stat-value">{{ stats()!.recues }}</span>
+          <span class="stat-label">Exécutées</span>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- ── Filters ── -->
+  <div class="filters-bar">
+    <div class="search-wrap">
+      <lucide-icon name="search" [size]="15" class="search-icon"></lucide-icon>
+      <input
+        type="text"
+        class="search-input"
+        placeholder="Rechercher (code, bénéficiaire, donateur)…"
+        [ngModel]="search()"
+        (ngModelChange)="search.set($event); onFilter()"
+      />
+    </div>
+    <select
+      class="filter-select"
+      [ngModel]="statusFilter()"
+      (ngModelChange)="statusFilter.set($event); onFilter()"
+    >
+      <option value="">Tous les statuts</option>
+      <option value="EN_ATTENTE">En attente</option>
+      <option value="PLANIFIEE">Planifiée</option>
+      <option value="EXECUTEE">Exécutée</option>
+      <option value="LIVREE">Livrée</option>
+      <option value="ARCHIVE">Archivée</option>
+    </select>
+    <span class="task-count text-muted">{{ total() }} aqiqa(s)</span>
+  </div>
+
+  <!-- ── Loading ── -->
+  @if (loading()) {
+    <div class="loading-wrapper"><div class="spinner"></div></div>
+  }
+
+  <!-- ── Table ── -->
+  @if (!loading()) {
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Bénéficiaire</th>
+            <th>Date naissance</th>
+            <th>Parent</th>
+            <th>Donateur</th>
+            <th>Montant</th>
+            <th>Statut</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (aq of aqiqas(); track aq.id) {
+            <tr>
+              <td>
+                <span class="code-chip">{{ aq.code }}</span>
+              </td>
+              <td>
+                <div class="beneficiary-cell">
+                  <div class="beneficiary-avatar">{{ aq.beneficiaryName[0] }}</div>
+                  <span class="fw-600">{{ aq.beneficiaryName }}</span>
+                </div>
+              </td>
+              <td class="text-muted">{{ formatDate(aq.birthDate) }}</td>
+              <td>{{ aq.parentName }}</td>
+              <td>
+                <div>
+                  <span class="fw-600">{{ aq.donorName }}</span>
+                  @if (aq.donorEmail) {
+                    <span class="donor-email text-muted">{{ aq.donorEmail }}</span>
+                  }
+                </div>
+              </td>
+              <td>
+                <span class="amount">{{ formatAmount(aq.amount) }}</span>
+              </td>
+              <td>
+                <select
+                  class="status-select"
+                  [ngModel]="aq.status"
+                  (ngModelChange)="updateStatus(aq, $event)"
+                >
+                  @for (s of statuses; track s) {
+                    <option [value]="s">{{ statusLabel(s) }}</option>
+                  }
+                </select>
+              </td>
+              <td>
+                <button
+                  class="btn btn-sm btn-secondary pdf-btn"
+                  (click)="downloadReport(aq)"
+                  [disabled]="downloadingId() === aq.id"
+                  title="Télécharger le rapport PDF"
+                >
+                  @if (downloadingId() === aq.id) {
+                    <span class="btn-spinner"></span>
+                  } @else {
+                    <lucide-icon name="file-text" [size]="13"></lucide-icon>
+                  }
+                  PDF
+                </button>
+              </td>
+            </tr>
+          }
+          @if (aqiqas().length === 0) {
+            <tr>
+              <td colspan="8" class="empty-row">
+                <lucide-icon name="inbox" [size]="22"></lucide-icon>
+                Aucune aqiqa trouvée
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Pagination ── -->
+    @if (totalPages() > 1) {
+      <div class="pagination">
+        <button
+          class="page-btn"
+          (click)="prevPage()"
+          [disabled]="page() === 1"
+        >
+          <lucide-icon name="chevron-left" [size]="15"></lucide-icon>
+        </button>
+
+        @for (p of pages; track p) {
+          <button
+            class="page-btn"
+            [class.active]="p === page()"
+            (click)="page.set(p); loadAqiqas()"
+          >{{ p }}</button>
+        }
+
+        <button
+          class="page-btn"
+          (click)="nextPage()"
+          [disabled]="page() === totalPages()"
+        >
+          <lucide-icon name="chevron-right" [size]="15"></lucide-icon>
+        </button>
+
+        <span class="page-info text-muted">
+          Page {{ page() }} / {{ totalPages() }}
+        </span>
+      </div>
+    }
+  }
+
+</div>

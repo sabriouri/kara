@@ -1,0 +1,541 @@
+<div class="inbox-root">
+
+  <!-- ═══ Stats bar ═══════════════════════════════════════════════════════════ -->
+  <div class="inbox-stats">
+    <div class="stat-card">
+      <span class="stat-icon"><lucide-icon name="inbox" [size]="20"></lucide-icon></span>
+      <span class="stat-value">{{ stats().total }}</span>
+      <span class="stat-label">Total</span>
+    </div>
+    <div class="stat-card stat-card--blue">
+      <span class="stat-icon"><lucide-icon name="circle-dot" [size]="20"></lucide-icon></span>
+      <span class="stat-value">{{ stats().unread }}</span>
+      <span class="stat-label">Non lus</span>
+    </div>
+    <div class="stat-card stat-card--orange">
+      <span class="stat-icon"><lucide-icon name="folder-open" [size]="20"></lucide-icon></span>
+      <span class="stat-value">{{ stats().open }}</span>
+      <span class="stat-label">Ouverts</span>
+    </div>
+    <div class="stat-card stat-card--green">
+      <span class="stat-icon"><lucide-icon name="circle-check-big" [size]="20"></lucide-icon></span>
+      <span class="stat-value">{{ stats().resolved }}</span>
+      <span class="stat-label">Résolus</span>
+    </div>
+  </div>
+
+  <!-- ═══ Main area ════════════════════════════════════════════════════════════ -->
+  <div class="inbox-body">
+
+    <!-- ── Left sidebar : conversation list ────────────────────────────────── -->
+    <aside class="conv-sidebar">
+
+      <div class="sidebar-head">
+        <h2 class="sidebar-title">Conversations</h2>
+        <button class="btn-sync" [class.spinning]="syncing()" (click)="sync()" title="Synchroniser les emails">
+          <lucide-icon name="refresh-cw" [size]="15"></lucide-icon>
+        </button>
+      </div>
+
+      <div class="sidebar-filters">
+        <select class="sf-select" [value]="filterChannel()" (change)="filterChannel.set($any($event.target).value); applyFilters()">
+          @for (opt of channelOptions; track opt.value) {
+            <option [value]="opt.value">{{ opt.label }}</option>
+          }
+        </select>
+        <select class="sf-select" [value]="filterStatus()" (change)="filterStatus.set($any($event.target).value); applyFilters()">
+          @for (opt of statusOptions; track opt.value) {
+            <option [value]="opt.value">{{ opt.label }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="conv-list">
+        @if (loading()) {
+          <div class="list-loading">
+            <div class="spinner-sm"></div>
+            Chargement…
+          </div>
+        } @else if (filtered().length === 0) {
+          <div class="list-empty">
+            <span class="list-empty-icon"><lucide-icon name="inbox" [size]="32"></lucide-icon></span>
+            <span>Aucune conversation</span>
+          </div>
+        } @else {
+          @for (conv of filtered(); track conv.id) {
+            <div
+              class="conv-item"
+              [class.conv-item--selected]="selected()?.id === conv.id"
+              [class.conv-item--unread]="(conv.unreadCount ?? 0) > 0"
+              [class.conv-item--system]="conv.status === 'SYSTEM'"
+              (click)="selectConversation(conv)"
+            >
+              <div class="ci-top">
+                <span class="ci-from">
+                  <span class="ci-channel-icon">
+                    @if (conv.status === 'SYSTEM') {
+                      <lucide-icon name="bot" [size]="13"></lucide-icon>
+                    } @else {
+                      <lucide-icon [name]="channelMeta(conv.channel).icon" [size]="13"></lucide-icon>
+                    }
+                  </span>
+                  {{ contactLabel(conv) }}
+                </span>
+                <span class="ci-time">{{ relativeTime(conv.lastMessageAt) }}</span>
+              </div>
+
+              <div class="ci-subject">{{ conv.subject || '(sans objet)' }}</div>
+
+              @if (conv.status === 'SYSTEM') {
+                <div class="ci-preview ci-preview--system">Import automatique iRaiser — lecture seule</div>
+              } @else {
+                <div class="ci-preview">{{ (conv.messages?.[0]?.body ?? '') | slice:0:80 }}…</div>
+              }
+
+              <div class="ci-footer">
+                <span class="ci-status" [style.background]="statusMeta(conv.status).color">
+                  {{ statusMeta(conv.status).label }}
+                </span>
+                @if (conv.status !== 'SYSTEM' && (conv.unreadCount ?? 0) > 0) {
+                  <span class="ci-unread">{{ conv.unreadCount }}</span>
+                }
+                @if (conv.donor) {
+                  <span class="ci-badge" title="Donateur connu"><lucide-icon name="user" [size]="11"></lucide-icon></span>
+                }
+                @if ((conv.tags?.length ?? 0) > 0) {
+                  <span class="ci-badge"><lucide-icon name="tag" [size]="11"></lucide-icon> {{ conv.tags!.length }}</span>
+                }
+              </div>
+            </div>
+          }
+        }
+      </div>
+    </aside>
+
+    <!-- ── Right panel : conversation detail ───────────────────────────────── -->
+    <div class="conv-detail">
+
+      @if (!selected()) {
+        <!-- Empty state -->
+        <div class="detail-empty">
+          <span class="detail-empty-icon"><lucide-icon name="inbox" [size]="48"></lucide-icon></span>
+          <h3>Sélectionnez une conversation</h3>
+          <p>Cliquez sur une conversation pour voir les messages</p>
+        </div>
+      } @else {
+        <!-- Header -->
+        <div class="detail-header">
+          <div class="detail-header-left">
+            <span class="dh-channel-pill"
+              [style.color]="channelMeta(selected()!.channel).color"
+              [style.background]="channelMeta(selected()!.channel).bg">
+              <lucide-icon [name]="channelMeta(selected()!.channel).icon" [size]="13"></lucide-icon>
+              {{ channelMeta(selected()!.channel).label }}
+            </span>
+            <div class="dh-info">
+              <span class="dh-contact">{{ contactLabel(selected()!) }}</span>
+              @if (selected()!.contactEmail) {
+                <span class="dh-sub">{{ selected()!.contactEmail }}</span>
+              }
+            </div>
+          </div>
+
+          <div class="detail-header-right">
+            @if (selected()!.status !== 'SYSTEM') {
+              <div class="status-actions">
+                @for (ns of nextStatuses; track ns.value) {
+                  @if (selected()!.status !== ns.value) {
+                    <button class="btn-status" [style.border-color]="ns.color" [style.color]="ns.color"
+                      (click)="updateStatus(ns.value)">
+                      {{ ns.label }}
+                    </button>
+                  }
+                }
+              </div>
+            }
+            <span class="dh-status-badge" [style.background]="statusMeta(selected()!.status).color">
+              {{ statusMeta(selected()!.status).label }}
+            </span>
+            <button class="btn-icon-sm" (click)="showPanel.set(!showPanel())" title="Panneau contact">
+              <lucide-icon name="panel-right" [size]="16"></lucide-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Body -->
+        <div class="detail-body" [class.detail-body--no-panel]="!showPanel()">
+
+          <!-- Messages + Compose -->
+          <div class="messages-col">
+            @if (detailLoading()) {
+              <div class="msgs-loading"><div class="spinner-sm"></div></div>
+            } @else {
+              <div class="messages-list">
+                @for (msg of messages(); track msg.id) {
+                  <div class="msg-wrap" [class.msg-wrap--out]="msg.direction === 'OUTBOUND'">
+                    <div class="msg-ava"
+                      [style.background]="msg.direction === 'OUTBOUND' ? '#6366F1' : channelMeta(msg.channel ?? selected()!.channel).color">
+                      {{ msgInitials(msg) }}
+                    </div>
+                    <div class="msg-card">
+                      <div class="msg-card-top">
+                        <div class="msg-card-from">
+                          <strong class="msg-from">{{ msgSenderLabel(msg) }}</strong>
+                          <span class="msg-pill"
+                            [style.color]="channelMeta(msg.channel ?? selected()!.channel).color"
+                            [style.background]="channelMeta(msg.channel ?? selected()!.channel).bg">
+                            <lucide-icon [name]="channelMeta(msg.channel ?? selected()!.channel).icon" [size]="11"></lucide-icon>
+                            {{ channelMeta(msg.channel ?? selected()!.channel).label }}
+                          </span>
+                          @if (msg.subject) {
+                            <span class="msg-subj" [title]="msg.subject">— {{ msg.subject }}</span>
+                          }
+                        </div>
+                        <span class="msg-time" [title]="fullDate(msg.sentAt)">{{ relativeTime(msg.sentAt) }}</span>
+                      </div>
+
+                      <div class="msg-content">
+                        @if (msg.htmlContent) {
+                          <div class="msg-html" [innerHTML]="sanitize(msg.htmlContent)"></div>
+                        } @else {
+                          <p class="msg-text">{{ msgRaw(msg) }}</p>
+                        }
+                      </div>
+
+                      @if (msg.direction === 'OUTBOUND' && msg.user) {
+                        <div class="msg-agent-line">
+                          <span class="msg-agent-dot"></span>
+                          Traité par <strong>{{ msg.user.firstName }} {{ msg.user.lastName }}</strong>
+                          @if (msg.template?.title) { · template «{{ msg.template!.title }}» }
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
+                <div #messagesEnd></div>
+              </div>
+            }
+
+            <!-- Compose -->
+            @if (selected()!.status !== 'SYSTEM') {
+              <div class="compose">
+                <div class="compose-to-line">
+                  <span class="compose-label">À :</span>
+                  <span class="compose-to-val" [style.color]="channelMeta(selected()!.channel).color">
+                    <lucide-icon [name]="channelMeta(selected()!.channel).icon" [size]="13"></lucide-icon>
+                    {{ contactLabel(selected()!) }}
+                  </span>
+                  <span class="compose-via">via {{ channelMeta(selected()!.channel).label }}</span>
+                  <button class="compose-tpl-toggle" (click)="showTemplates.set(!showTemplates())">
+                    <lucide-icon name="file-text" [size]="13"></lucide-icon> Templates
+                  </button>
+                </div>
+
+                @if (showTemplates()) {
+                  <div class="tpl-dropdown">
+                    @if (templates().length === 0) {
+                      <div class="tpl-empty">Aucun template</div>
+                    } @else {
+                      @for (tpl of templates(); track tpl.id) {
+                        <button class="tpl-row" (click)="applyTemplate(tpl)">
+                          <span class="tpl-name">{{ tpl.title }}</span>
+                          <span class="tpl-prev">{{ (tpl.body || tpl.content || '') | slice:0:60 }}…</span>
+                        </button>
+                      }
+                    }
+                  </div>
+                }
+
+                @if (selected()!.channel === 'EMAIL') {
+                  <div class="compose-subject-line">
+                    <span class="compose-label">Objet :</span>
+                    <input class="compose-subject" [value]="replySubject()" (input)="replySubject.set($any($event.target).value)" />
+                  </div>
+                }
+
+                <div class="rich-toolbar">
+                  <button class="rtb-btn" style="font-weight:700" title="Gras" (mousedown)="$event.preventDefault(); execCmd('bold')">B</button>
+                  <button class="rtb-btn" style="font-style:italic" title="Italique" (mousedown)="$event.preventDefault(); execCmd('italic')">I</button>
+                  <button class="rtb-btn" style="text-decoration:underline" title="Souligné" (mousedown)="$event.preventDefault(); execCmd('underline')">U</button>
+                  <button class="rtb-btn" style="text-decoration:line-through" title="Barré" (mousedown)="$event.preventDefault(); execCmd('strikeThrough')">S</button>
+                  <span class="rtb-sep"></span>
+                  <button class="rtb-btn" title="Liste à puces" (mousedown)="$event.preventDefault(); execCmd('insertUnorderedList')">•—</button>
+                  <button class="rtb-btn" title="Liste numérotée" (mousedown)="$event.preventDefault(); execCmd('insertOrderedList')">1.</button>
+                  <span class="rtb-sep"></span>
+                  <button class="rtb-btn" title="Lien" (mousedown)="$event.preventDefault(); execCmd('createLink')">
+                    <lucide-icon name="link" [size]="13"></lucide-icon>
+                  </button>
+                </div>
+
+                <div
+                  #replyEditor
+                  class="rich-body"
+                  contenteditable="true"
+                  [attr.data-placeholder]="'Message ' + channelMeta(selected()!.channel).label + '…'"
+                  (input)="onEditorInput($event)"
+                ></div>
+
+                <div class="compose-footer">
+                  <button class="btn-send"
+                    [style.background]="sending() ? '#9CA3AF' : channelMeta(selected()!.channel).color"
+                    [disabled]="sending()"
+                    (click)="sendReply()">
+                    @if (sending()) {
+                      Envoi…
+                    } @else {
+                      <lucide-icon name="send" [size]="14"></lucide-icon>
+                      Envoyer
+                    }
+                  </button>
+                </div>
+              </div>
+            } @else {
+              <div class="system-banner">
+                <lucide-icon name="bot" [size]="16"></lucide-icon>
+                Conversation automatique iRaiser — lecture seule
+              </div>
+            }
+          </div>
+
+          <!-- Donor panel -->
+          @if (showPanel()) {
+            <aside class="donor-panel">
+
+              <div class="dp-profile">
+                <div class="dp-ava">{{ donorInitial(selected()!) }}</div>
+                <div class="dp-name">{{ donorDisplayName(selected()!) }}</div>
+                <div class="dp-link-status"
+                  [class.dp-link--linked]="selected()!.donor || selected()!.ohmeLinked"
+                  [class.dp-link--ohme]="!selected()!.donor && !selected()!.ohmeLinked && !!selected()!.ohmeMatch"
+                  [class.dp-link--none]="!selected()!.donor && !selected()!.ohmeLinked && !selected()!.ohmeMatch">
+                  @if (selected()!.donor || selected()!.ohmeLinked) {
+                    <lucide-icon name="circle-check-big" [size]="12"></lucide-icon> Lié à Ohme
+                  } @else if (selected()!.ohmeMatch) {
+                    <lucide-icon name="check-circle" [size]="12"></lucide-icon> Trouvé dans Ohme
+                  } @else {
+                    Non lié à Ohme
+                  }
+                </div>
+              </div>
+
+              @if (!selected()!.donor && selected()!.ohmeMatch) {
+                <div class="dp-block">
+                  <div class="dp-block-title">Profil Ohme</div>
+                  @if (selected()!.ohmeMatch!.firstname || selected()!.ohmeMatch!.lastname) {
+                    <div class="dp-row">
+                      <span class="dp-row-icon"><lucide-icon name="user" [size]="13"></lucide-icon></span>
+                      <span>{{ selected()!.ohmeMatch!.civility }} {{ selected()!.ohmeMatch!.firstname }} {{ selected()!.ohmeMatch!.lastname }}</span>
+                    </div>
+                  }
+                  @if (selected()!.ohmeMatch!.email) {
+                    <div class="dp-row">
+                      <span class="dp-row-icon"><lucide-icon name="mail" [size]="13"></lucide-icon></span>
+                      <span>{{ selected()!.ohmeMatch!.email }}</span>
+                    </div>
+                  }
+                </div>
+              }
+
+              <div class="dp-block">
+                <div class="dp-block-title">Contact</div>
+                @if (selected()!.donor?.donorEmail || selected()!.contactEmail) {
+                  <div class="dp-row">
+                    <span class="dp-row-icon"><lucide-icon name="mail" [size]="13"></lucide-icon></span>
+                    <span>{{ selected()!.donor?.donorEmail || selected()!.contactEmail }}</span>
+                  </div>
+                }
+                @if (selected()!.donor?.donorPhone || selected()!.contactPhone) {
+                  <div class="dp-row">
+                    <span class="dp-row-icon"><lucide-icon name="phone" [size]="13"></lucide-icon></span>
+                    <span>{{ selected()!.donor?.donorPhone || selected()!.contactPhone }}</span>
+                  </div>
+                }
+                @if (selected()!.donor?.city) {
+                  <div class="dp-row">
+                    <span class="dp-row-icon"><lucide-icon name="map-pin" [size]="13"></lucide-icon></span>
+                    <span>{{ selected()!.donor!.city }}</span>
+                  </div>
+                }
+                @if (!selected()!.donor?.donorEmail && !selected()!.contactEmail && !selected()!.donor?.donorPhone && !selected()!.contactPhone) {
+                  <p class="dp-muted">Aucune info de contact</p>
+                }
+              </div>
+
+              @if (!selected()!.donor && !selected()!.ohmeLinked && donorMode() === 'view') {
+                <div class="dp-block">
+                  <div class="dp-block-title">Lier à Ohme</div>
+                  @if (selected()!.ohmeMatch) {
+                    <button class="dp-btn dp-btn--blue" (click)="linkDonor(selected()!.ohmeMatch!.id)">
+                      <lucide-icon name="check" [size]="13"></lucide-icon>
+                      Confirmer le lien avec {{ selected()!.ohmeMatch!.firstname }} {{ selected()!.ohmeMatch!.lastname }}
+                    </button>
+                  } @else {
+                    <button class="dp-btn dp-btn--blue" (click)="donorMode.set('link')">
+                      <lucide-icon name="link" [size]="13"></lucide-icon>
+                      Lier à un donateur existant
+                    </button>
+                    <button class="dp-btn dp-btn--ghost" (click)="donorMode.set('create')">
+                      <lucide-icon name="plus" [size]="13"></lucide-icon>
+                      Créer un nouveau profil
+                    </button>
+                  }
+                </div>
+              }
+
+              @if (donorMode() === 'link') {
+                <div class="dp-block">
+                  <div class="dp-block-title">
+                    Rechercher
+                    <button class="dp-x" (click)="donorMode.set('view'); donorResults.set([]); donorSearch.set('')">
+                      <lucide-icon name="x" [size]="12"></lucide-icon>
+                    </button>
+                  </div>
+                  <div class="dp-search-row">
+                    <input class="dp-input" placeholder="Nom, email…" [value]="donorSearch()"
+                      (input)="donorSearch.set($any($event.target).value)"
+                      (keydown.enter)="searchDonors()" />
+                    <button class="dp-search-btn" (click)="searchDonors()">
+                      @if (donorSearching()) { … } @else {
+                        <lucide-icon name="search" [size]="13"></lucide-icon>
+                      }
+                    </button>
+                  </div>
+                  @for (r of donorResults(); track r.id) {
+                    <button class="dp-result" (click)="linkDonor(r.id)">
+                      <span class="dp-result-name">{{ r.donorName || ((r.firstname || '') + ' ' + (r.lastname || '')) || r.email }}</span>
+                      <span class="dp-result-email">{{ r.donorEmail || r.email || r.phone || r.mobile }}</span>
+                    </button>
+                  }
+                  @if (!donorSearching() && donorSearch() && donorResults().length === 0) {
+                    <p class="dp-muted">Aucun résultat</p>
+                  }
+                </div>
+              }
+
+              @if (donorMode() === 'create') {
+                <div class="dp-block">
+                  <div class="dp-block-title">
+                    Nouveau profil
+                    <button class="dp-x" (click)="donorMode.set('view')">
+                      <lucide-icon name="x" [size]="12"></lucide-icon>
+                    </button>
+                  </div>
+                  <input class="dp-input dp-input--full" placeholder="Prénom" [value]="newDonorForm().firstName" (input)="updateNewDonorField('firstName', $any($event.target).value)" />
+                  <input class="dp-input dp-input--full" placeholder="Nom" [value]="newDonorForm().lastName" (input)="updateNewDonorField('lastName', $any($event.target).value)" />
+                  <input class="dp-input dp-input--full" placeholder="Email" [value]="newDonorForm().email" (input)="updateNewDonorField('email', $any($event.target).value)" />
+                  <input class="dp-input dp-input--full" placeholder="Téléphone" [value]="newDonorForm().phone" (input)="updateNewDonorField('phone', $any($event.target).value)" />
+                  <input class="dp-input dp-input--full" placeholder="Ville" [value]="newDonorForm().city" (input)="updateNewDonorField('city', $any($event.target).value)" />
+                  <button class="dp-btn dp-btn--blue dp-btn--full" (click)="createOhmeDonor()">Créer dans Ohme →</button>
+                </div>
+              }
+
+              @if ((selected()!.donor?.wells?.length ?? 0) > 0) {
+                <div class="dp-block">
+                  <div class="dp-block-title">
+                    <lucide-icon name="droplets" [size]="13"></lucide-icon>
+                    Puits financés ({{ selected()!.donor!.wells!.length }})
+                  </div>
+                  @for (w of selected()!.donor!.wells!.slice(0, 5); track w.id) {
+                    <div class="dp-well">
+                      <div class="dp-well-info">
+                        <span class="dp-well-name">{{ w.wellName || 'Puits #' + w.id }}</span>
+                        <span class="dp-well-meta">{{ w.country }}{{ w.year ? ' · ' + w.year : '' }}</span>
+                      </div>
+                      <span class="dp-well-badge">{{ w.status }}</span>
+                    </div>
+                  }
+                </div>
+              }
+
+              <div class="dp-block dp-block--grow">
+                <div class="dp-block-title">Historique échanges</div>
+                @if ((selected()!.contactHistory?.length ?? 0) === 0) {
+                  <p class="dp-muted">
+                    {{ (selected()!.donor || selected()!.ohmeLinked || selected()!.ohmeMatch)
+                       ? 'Aucun autre échange.' : 'Liez ce contact pour voir son historique.' }}
+                  </p>
+                } @else {
+                  @for (h of selected()!.contactHistory!; track h.id) {
+                    <button class="dp-hist" (click)="openHistoryConv(h)">
+                      <span [style.color]="channelMeta(h.channel).color">
+                        <lucide-icon [name]="channelMeta(h.channel).icon" [size]="13"></lucide-icon>
+                      </span>
+                      <div class="dp-hist-body">
+                        <span class="dp-hist-subj">{{ h.subject || 'Conversation ' + h.channel }}</span>
+                        <span class="dp-hist-date">{{ relativeTime(h.lastMessageAt) }}</span>
+                      </div>
+                      <span class="dp-hist-arrow">›</span>
+                    </button>
+                  }
+                }
+              </div>
+
+              <div class="dp-block">
+                <div class="dp-block-title">Agents</div>
+                @if (uniqueAgents(messages()).length === 0) {
+                  <p class="dp-muted">Aucune réponse envoyée.</p>
+                } @else {
+                  @for (m of uniqueAgents(messages()); track m.user!.email) {
+                    <div class="dp-agent">
+                      <div class="dp-agent-ava">{{ m.user!.firstName[0] }}{{ m.user!.lastName[0] }}</div>
+                      <div class="dp-agent-info">
+                        <span class="dp-agent-name">{{ m.user!.firstName }} {{ m.user!.lastName }}</span>
+                        <span class="dp-agent-time">{{ relativeTime(m.sentAt) }}</span>
+                      </div>
+                    </div>
+                  }
+                }
+              </div>
+            </aside>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</div>
+
+<!-- ── History modal ─────────────────────────────────────────────────────── -->
+@if (historyConv()) {
+  <div class="modal-overlay" (click)="closeHistory()">
+    <div class="modal-history" (click)="$event.stopPropagation()">
+      <div class="mh-header">
+        <div class="mh-title">
+          <span [style.color]="channelMeta(historyConv()!.channel).color">
+            <lucide-icon [name]="channelMeta(historyConv()!.channel).icon" [size]="15"></lucide-icon>
+          </span>
+          {{ historyConv()!.subject || 'Conversation' }}
+        </div>
+        <button class="modal-close-btn" (click)="closeHistory()">
+          <lucide-icon name="x" [size]="18"></lucide-icon>
+        </button>
+      </div>
+      <div class="mh-body">
+        @if (historyLoading()) {
+          <div class="msgs-loading"><div class="spinner-sm"></div></div>
+        } @else {
+          @for (msg of historyMessages(); track msg.id) {
+            <div class="msg-wrap" [class.msg-wrap--out]="msg.direction === 'OUTBOUND'">
+              <div class="msg-ava"
+                [style.background]="msg.direction === 'OUTBOUND' ? '#6366F1' : channelMeta(msg.channel ?? historyConv()!.channel).color">
+                {{ msgInitials(msg) }}
+              </div>
+              <div class="msg-card">
+                <div class="msg-card-top">
+                  <strong class="msg-from">{{ msgSenderLabel(msg) }}</strong>
+                  <span class="msg-time">{{ relativeTime(msg.sentAt) }}</span>
+                </div>
+                <div class="msg-content">
+                  @if (msg.htmlContent) {
+                    <div class="msg-html" [innerHTML]="sanitize(msg.htmlContent)"></div>
+                  } @else {
+                    <p class="msg-text">{{ msgRaw(msg) }}</p>
+                  }
+                </div>
+              </div>
+            </div>
+          }
+        }
+      </div>
+    </div>
+  </div>
+}

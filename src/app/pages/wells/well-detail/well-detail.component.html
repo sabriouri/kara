@@ -1,0 +1,462 @@
+@if (loading()) {
+  <div class="wd-loading">
+    <div class="spinner"></div>
+    <span>Chargement du puits…</span>
+  </div>
+} @else if (error()) {
+  <div class="wd-error">
+    <lucide-icon name="triangle-alert" [size]="36" [strokeWidth]="1.5"></lucide-icon>
+    <p>{{ error() }}</p>
+    <a routerLink="/wells" class="btn-secondary">Retour à la liste</a>
+  </div>
+} @else if (well()) {
+
+<div class="wd-root">
+
+  <!-- Top bar -->
+  <div class="wd-topbar">
+    <a routerLink="/wells" class="wd-back">
+      <lucide-icon name="arrow-left" [size]="16"></lucide-icon>
+      Retour aux puits
+    </a>
+    <div class="wd-topbar-right">
+      @if (saveMsg()) {
+        <span class="wd-save-msg" [class.error]="saveMsg() === 'Erreur lors de la sauvegarde'">{{ saveMsg() }}</span>
+      }
+      @if (!editMode()) {
+        <button class="btn-secondary" (click)="startEdit()">
+          <lucide-icon name="pencil" [size]="14"></lucide-icon>
+          Modifier
+        </button>
+      } @else {
+        <button class="btn-secondary" (click)="cancelEdit()">Annuler</button>
+        <button class="btn-primary" (click)="saveEdit()" [disabled]="saving()">
+          @if (saving()) { <div class="btn-spinner"></div> }
+          Enregistrer
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Hero -->
+  <div class="wd-hero">
+    <div class="wd-hero-left">
+      <div class="wd-hero-code">
+        <lucide-icon name="droplet" [size]="20"></lucide-icon>
+        {{ well()!.code }}
+      </div>
+      @if (well()!.plaque) {
+        <p class="wd-hero-plaque">{{ well()!.plaque }}</p>
+      }
+      <div class="wd-hero-badges">
+        <span class="wd-status-badge"
+          [style.background]="getProjectStatusColor(well()!.projectStatus) + '22'"
+          [style.color]="getProjectStatusColor(well()!.projectStatus)">
+          {{ getProjectStatusLabel(well()!.projectStatus) }}
+        </span>
+        <span class="wd-status-badge"
+          [style.background]="getRdStatusColor(well()!.rdStatus) + '22'"
+          [style.color]="getRdStatusColor(well()!.rdStatus)">
+          {{ getRdStatusLabel(well()!.rdStatus) }}
+        </span>
+        @if (well()!.isInstalment) {
+          <span class="wd-status-badge" style="background:#e0f2fe;color:#0369a1">Mensualisation</span>
+        }
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="wd-hero-progress">
+      <div class="wd-progress-meta">
+        <span class="wd-progress-label">Taux d'encaissement</span>
+        <span class="wd-progress-pct">{{ progress() }}%</span>
+      </div>
+      <div class="wd-progress-track">
+        <div class="wd-progress-fill" [style.width.%]="progress()" [style.background]="getProjectStatusColor(well()!.projectStatus)"></div>
+      </div>
+      <div class="wd-progress-sub">
+        <span>{{ fmt(well()!.paidAmount) }} encaissé</span>
+        <span>{{ fmt(well()!.remainingAmount) }} restant</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="wd-tabs">
+    @for (tab of tabs; track tab.key) {
+      <button class="wd-tab" [class.active]="activeTab() === tab.key" (click)="setTab(tab.key)">
+        <lucide-icon [name]="tab.icon" [size]="14"></lucide-icon>
+        {{ tab.label }}
+        @if (tab.key === 'comments' && well()!.comments?.length) {
+          <span class="wd-tab-count">{{ well()!.comments!.length }}</span>
+        }
+      </button>
+    }
+  </div>
+
+  <!-- Tab content -->
+  <div class="wd-tab-content">
+
+    <!-- ── Info ── -->
+    @if (activeTab() === 'info') {
+      @if (!editMode()) {
+        <div class="wd-info-grid">
+          <div class="wd-info-card">
+            <h3 class="wd-info-title">Localisation</h3>
+            <div class="wd-field-list">
+              <div class="wd-field">
+                <span class="wd-field-label">Zone</span>
+                <span class="wd-field-value">{{ well()!.zone || '–' }}</span>
+              </div>
+              <div class="wd-field">
+                <span class="wd-field-label">Pays</span>
+                <span class="wd-field-value">{{ well()!.country || '–' }}</span>
+              </div>
+              <div class="wd-field">
+                <span class="wd-field-label">Région</span>
+                <span class="wd-field-value">{{ well()!.region || '–' }}</span>
+              </div>
+              <div class="wd-field">
+                <span class="wd-field-label">Campagne</span>
+                <span class="wd-field-value">{{ well()!.campaign || '–' }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="wd-info-card">
+            <h3 class="wd-info-title">Statuts</h3>
+            <div class="wd-field-list">
+              <div class="wd-field">
+                <span class="wd-field-label">Statut projet</span>
+                <span class="wd-field-value">
+                  <span class="wd-inline-badge"
+                    [style.background]="getProjectStatusColor(well()!.projectStatus) + '22'"
+                    [style.color]="getProjectStatusColor(well()!.projectStatus)">
+                    {{ getProjectStatusLabel(well()!.projectStatus) }}
+                  </span>
+                </span>
+              </div>
+              <div class="wd-field">
+                <span class="wd-field-label">Statut RD</span>
+                <span class="wd-field-value">
+                  <span class="wd-inline-badge"
+                    [style.background]="getRdStatusColor(well()!.rdStatus) + '22'"
+                    [style.color]="getRdStatusColor(well()!.rdStatus)">
+                    {{ getRdStatusLabel(well()!.rdStatus) }}
+                  </span>
+                </span>
+              </div>
+              @if (well()!.tranche) {
+                <div class="wd-field">
+                  <span class="wd-field-label">Tranche</span>
+                  <a class="wd-field-link" [routerLink]="['/tranches', well()!.tranche!.id]">
+                    {{ well()!.tranche!.reference || well()!.tranche!.name || well()!.tranche!.id }}
+                  </a>
+                </div>
+              }
+            </div>
+          </div>
+
+          <div class="wd-info-card wd-info-full">
+            <h3 class="wd-info-title">Notes</h3>
+            <p class="wd-notes">{{ well()!.notes || 'Aucune note.' }}</p>
+          </div>
+        </div>
+      } @else {
+        <!-- Edit mode: info -->
+        <div class="wd-edit-form">
+          <div class="form-section">
+            <h3 class="form-section-title">Localisation</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Zone</label>
+                <select class="form-input" [value]="editForm().zone" (change)="setEditField('zone', $any($event.target).value)">
+                  <option value="">–</option>
+                  <option value="ASIE">Asie</option>
+                  <option value="AFRIQUE">Afrique</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Pays</label>
+                <input class="form-input" type="text" [value]="editForm().country || ''" (input)="setEditField('country', $any($event.target).value)" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Région</label>
+                <input class="form-input" type="text" [value]="editForm().region || ''" (input)="setEditField('region', $any($event.target).value)" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Campagne</label>
+                <input class="form-input" type="text" [value]="editForm().campaign || ''" (input)="setEditField('campaign', $any($event.target).value)" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Plaque</label>
+                <input class="form-input" type="text" [value]="editForm().plaque || ''" (input)="setEditField('plaque', $any($event.target).value)" />
+              </div>
+            </div>
+          </div>
+          <div class="form-section">
+            <h3 class="form-section-title">Statuts</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Statut projet</label>
+                <select class="form-input" [value]="editForm().projectStatus" (change)="setEditField('projectStatus', $any($event.target).value)">
+                  @for (s of projectStatuses; track s.value) {
+                    <option [value]="s.value">{{ s.label }}</option>
+                  }
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Statut RD</label>
+                <select class="form-input" [value]="editForm().rdStatus" (change)="setEditField('rdStatus', $any($event.target).value)">
+                  @for (s of rdStatuses; track s.value) {
+                    <option [value]="s.value">{{ s.label }}</option>
+                  }
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-group">
+              <label class="form-label">Notes</label>
+              <textarea class="form-input form-textarea" rows="4" [value]="editForm().notes || ''" (input)="setEditField('notes', $any($event.target).value)"></textarea>
+            </div>
+          </div>
+        </div>
+      }
+    }
+
+    <!-- ── Finance ── -->
+    @if (activeTab() === 'finance') {
+      @if (!editMode()) {
+        <div class="wd-info-grid">
+          <div class="wd-info-card">
+            <h3 class="wd-info-title">Montants</h3>
+            <div class="wd-field-list">
+              <div class="wd-field">
+                <span class="wd-field-label">Montant cible</span>
+                <span class="wd-field-value wd-amount">{{ fmt(well()!.targetAmount) }}</span>
+              </div>
+              <div class="wd-field">
+                <span class="wd-field-label">Montant encaissé</span>
+                <span class="wd-field-value wd-amount-paid">{{ fmt(well()!.paidAmount) }}</span>
+              </div>
+              <div class="wd-field">
+                <span class="wd-field-label">Montant restant</span>
+                <span class="wd-field-value wd-amount-rest">{{ fmt(well()!.remainingAmount) }}</span>
+              </div>
+              <div class="wd-field">
+                <span class="wd-field-label">Mode de paiement</span>
+                <span class="wd-field-value">{{ paymentModeLabel(well()!.paymentMode) }}</span>
+              </div>
+              <div class="wd-field">
+                <span class="wd-field-label">Mensualisation</span>
+                <span class="wd-field-value">{{ well()!.isInstalment ? 'Oui' : 'Non' }}</span>
+              </div>
+            </div>
+          </div>
+
+          @if (well()!.instalments?.length) {
+            <div class="wd-info-card wd-info-full">
+              <h3 class="wd-info-title">Échéances de mensualisation</h3>
+              <div class="wd-instalment-list">
+                @for (inst of well()!.instalments!; track inst.id) {
+                  <div class="wd-instalment-row">
+                    <span class="wd-instalment-date">{{ fmtDate(inst.dueDate) }}</span>
+                    <span class="wd-instalment-amount">{{ fmt(inst.amount) }}</span>
+                    <span class="wd-instalment-status"
+                      [style.background]="getInstalmentStatusColor(inst.status) + '22'"
+                      [style.color]="getInstalmentStatusColor(inst.status)">
+                      {{ inst.status }}
+                    </span>
+                    @if (inst.paidAt) {
+                      <span class="wd-instalment-paid">Payé le {{ fmtDate(inst.paidAt) }}</span>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="wd-edit-form">
+          <div class="form-section">
+            <h3 class="form-section-title">Montants</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Montant cible (€)</label>
+                <input class="form-input" type="number" [value]="editForm().targetAmount" (input)="setEditField('targetAmount', +$any($event.target).value)" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Mode de paiement</label>
+                <select class="form-input" [value]="editForm().paymentMode || ''" (change)="setEditField('paymentMode', $any($event.target).value)">
+                  <option value="">Choisir…</option>
+                  <option value="VIREMENT">Virement</option>
+                  <option value="CHEQUE">Chèque</option>
+                  <option value="ESPECES">Espèces</option>
+                  <option value="CB">Carte bancaire</option>
+                  <option value="PRELEVEMENT">Prélèvement</option>
+                </select>
+              </div>
+              <div class="form-group form-check-group">
+                <label class="form-check-label">
+                  <input type="checkbox" [checked]="editForm().isInstalment" (change)="setEditField('isInstalment', $any($event.target).checked)" />
+                  Paiement en mensualisation
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    }
+
+    <!-- ── Donor ── -->
+    @if (activeTab() === 'donor') {
+      @if (!editMode()) {
+        <div class="wd-info-grid">
+          <div class="wd-info-card">
+            <h3 class="wd-info-title">Informations donateur</h3>
+            <div class="wd-field-list">
+              <div class="wd-field">
+                <span class="wd-field-label">Nom</span>
+                <span class="wd-field-value">{{ getDonorName(well()!) || '–' }}</span>
+              </div>
+              <div class="wd-field">
+                <span class="wd-field-label">Email</span>
+                <span class="wd-field-value">{{ well()!.donorEmail || '–' }}</span>
+              </div>
+              <div class="wd-field">
+                <span class="wd-field-label">Téléphone</span>
+                <span class="wd-field-value">{{ well()!.donorPhone || '–' }}</span>
+              </div>
+            </div>
+          </div>
+
+          @if (well()!.donors?.length) {
+            <div class="wd-info-card">
+              <h3 class="wd-info-title">Co-donateurs</h3>
+              @for (d of well()!.donors!; track d.donorEmail) {
+                <div class="wd-donor-row">
+                  <div class="wd-donor-info">
+                    <span class="wd-donor-name">{{ d.donorName }}</span>
+                    <span class="wd-donor-email">{{ d.donorEmail }}</span>
+                  </div>
+                  <div class="wd-donor-amount">
+                    <span>{{ fmt(d.amount) }}</span>
+                    <span class="wd-donor-pct">{{ d.percentage }}%</span>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="wd-edit-form">
+          <div class="form-section">
+            <h3 class="form-section-title">Donateur</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Prénom</label>
+                <input class="form-input" type="text" [value]="editForm().donorFirstName || ''" (input)="setEditField('donorFirstName', $any($event.target).value)" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Nom</label>
+                <input class="form-input" type="text" [value]="editForm().donorLastName || ''" (input)="setEditField('donorLastName', $any($event.target).value)" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Email</label>
+                <input class="form-input" type="email" [value]="editForm().donorEmail || ''" (input)="setEditField('donorEmail', $any($event.target).value)" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Téléphone</label>
+                <input class="form-input" type="tel" [value]="editForm().donorPhone || ''" (input)="setEditField('donorPhone', $any($event.target).value)" />
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    }
+
+    <!-- ── Dates ── -->
+    @if (activeTab() === 'dates') {
+      @if (!editMode()) {
+        <div class="wd-info-grid">
+          <div class="wd-info-card">
+            <h3 class="wd-info-title">Dates clés</h3>
+            <div class="wd-field-list">
+              <div class="wd-field">
+                <span class="wd-field-label">Date de don</span>
+                <span class="wd-field-value">{{ fmtDate(well()!.donationDate) }}</span>
+              </div>
+              <div class="wd-field">
+                <span class="wd-field-label">Créé le</span>
+                <span class="wd-field-value">{{ fmtDate(well()!.createdAt) }}</span>
+              </div>
+              <div class="wd-field">
+                <span class="wd-field-label">Mis à jour le</span>
+                <span class="wd-field-value">{{ fmtDate(well()!.updatedAt) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      } @else {
+        <div class="wd-edit-form">
+          <div class="form-section">
+            <h3 class="form-section-title">Dates</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Date de don</label>
+                <input class="form-input" type="date" [value]="editForm().donationDate || ''" (input)="setEditField('donationDate', $any($event.target).value)" />
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+    }
+
+    <!-- ── Comments ── -->
+    @if (activeTab() === 'comments') {
+      <div class="wd-comments">
+        <div class="wd-comment-form">
+          <textarea
+            class="form-input form-textarea"
+            rows="3"
+            placeholder="Ajouter un commentaire…"
+            [value]="newComment()"
+            (input)="newComment.set($any($event.target).value)"
+          ></textarea>
+          <button class="btn-primary" (click)="submitComment()" [disabled]="addingComment() || !newComment().trim()">
+            @if (addingComment()) { <div class="btn-spinner"></div> }
+            <lucide-icon name="send" [size]="14"></lucide-icon>
+            Envoyer
+          </button>
+        </div>
+
+        @if (well()!.comments?.length) {
+          <div class="wd-comment-list">
+            @for (c of well()!.comments!; track c.id) {
+              <div class="wd-comment">
+                <div class="wd-comment-avatar">
+                  {{ getAuthorName(c).charAt(0).toUpperCase() }}
+                </div>
+                <div class="wd-comment-body">
+                  <div class="wd-comment-meta">
+                    <span class="wd-comment-author">{{ getAuthorName(c) }}</span>
+                    <span class="wd-comment-date">{{ fmtDate(c.createdAt) }}</span>
+                  </div>
+                  <p class="wd-comment-text">{{ c.content }}</p>
+                </div>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="wd-empty-comments">
+            <lucide-icon name="message-circle" [size]="40" [strokeWidth]="1.2"></lucide-icon>
+            <p>Aucun commentaire</p>
+          </div>
+        }
+      </div>
+    }
+
+  </div>
+</div>
+}

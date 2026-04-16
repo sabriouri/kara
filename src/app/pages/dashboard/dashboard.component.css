@@ -1,0 +1,361 @@
+/* ── Root ─────────────────────────────────── */
+.db-root {
+  min-height: 100vh;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 400ms ease, transform 400ms ease;
+}
+.db-root.mounted { opacity: 1; transform: none; }
+
+/* ── Hero ────────────────────────────────── */
+.db-hero {
+  background: linear-gradient(135deg, #0d1b2a 0%, #1e3a5f 100%);
+  padding: 32px 40px 28px;
+  margin: -32px -32px 28px;
+  color: #fff;
+}
+
+.db-hero-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.db-greeting { display: flex; align-items: center; gap: 16px; }
+.db-greeting-text { font-size: 1.6rem; font-weight: 800; margin: 0; font-family: 'Poppins', sans-serif; }
+.db-greeting-meta { display: flex; align-items: center; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+.db-greeting-date { font-size: 13px; color: rgba(255,255,255,.6); text-transform: capitalize; }
+
+/* ── Météo badge ────────────────────────────────── */
+.db-weather-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  color: rgba(255,255,255,.75);
+  animation: fadeInUp 500ms ease both;
+  animation-delay: 300ms;
+}
+.db-weather-sep   { color: rgba(255,255,255,.3); }
+.db-weather-city  { font-weight: 600; color: rgba(255,255,255,.55); font-size: 11.5px; text-transform: uppercase; letter-spacing: .5px; }
+.db-weather-temp  { font-weight: 700; color: #fff; background: rgba(255,255,255,.12); padding: 1px 7px; border-radius: 99px; }
+.db-weather-label { color: rgba(255,255,255,.65); }
+
+/* ── Icône météo + conteneur ────────────────────── */
+.db-weather-icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* ─── Animations météo (appliquées sur le container) ──────────────────── */
+
+/* Soleil : rotation douce en continu */
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.weather-spin { animation: spin-slow 12s linear infinite; }
+
+/* Nuage / brouillard : flottement vertical */
+@keyframes float-ud {
+  0%, 100% { transform: translateY(0);   }
+  50%       { transform: translateY(-5px); }
+}
+.weather-float { animation: float-ud 3s ease-in-out infinite; }
+
+/* Pluie / bruine : oscillation + légère descente */
+@keyframes drip {
+  0%, 100% { transform: translateY(0)   rotate(-3deg); }
+  50%       { transform: translateY(4px) rotate(3deg);  }
+}
+.weather-drip { animation: drip 1.4s ease-in-out infinite; }
+
+/* Neige : rotation douce et flottement */
+@keyframes snow-fall {
+  0%   { transform: translateY(0)   rotate(0deg);    }
+  50%  { transform: translateY(5px) rotate(90deg);   }
+  100% { transform: translateY(0)   rotate(180deg);  }
+}
+.weather-snow { animation: snow-fall 4s ease-in-out infinite; }
+
+/* Orage : flash */
+@keyframes flash {
+  0%, 90%, 100% { opacity: 1;    transform: scale(1);   filter: brightness(1);   }
+  92%            { opacity: .4;  transform: scale(1.12); filter: brightness(2);   }
+  94%            { opacity: 1;   transform: scale(.96);  filter: brightness(1);   }
+}
+.weather-flash { animation: flash 2s ease-in-out infinite; }
+
+/* Lune : pulse doux */
+@keyframes moon-pulse {
+  0%, 100% { transform: scale(1);     filter: brightness(1);    }
+  50%       { transform: scale(1.1);  filter: brightness(1.25); }
+}
+.weather-pulse { animation: moon-pulse 3s ease-in-out infinite; }
+
+/* Entrée générale */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.db-hero-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.db-role {
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(26,171,226,.25);
+  color: #7dd3fc;
+  padding: 3px 10px;
+  border-radius: 99px;
+  border: 1px solid rgba(26,171,226,.4);
+}
+.db-dept {
+  font-size: 11.5px;
+  color: rgba(255,255,255,.5);
+}
+
+/* Progress hero */
+.db-progress-wrap { max-width: 600px; }
+.db-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: rgba(255,255,255,.75);
+  margin-bottom: 8px;
+}
+.db-progress-track {
+  height: 8px;
+  background: rgba(255,255,255,.15);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.db-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #1AABE2, #7dd3fc);
+  border-radius: 99px;
+  transition: width 800ms ease;
+}
+/* Progress inside card (light mode) */
+.db-progress-wrap--light { max-width: 100%; }
+.db-progress-meta--light {
+  color: var(--text-secondary);
+}
+.db-progress-track--light {
+  background: #e2e8f0;
+}
+
+/* ── Hero actions row ────────────────────── */
+.db-hero-actions {
+  display: flex;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.db-pole-chip {
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.2);
+  border-radius: 20px;
+  padding: 4px 14px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ── Content ─────────────────────────────── */
+.db-content {
+  padding: 0 8px;
+}
+
+/* ── Loading ─────────────────────────────── */
+.db-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 60px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* ── Stat cards ──────────────────────────── */
+.db-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+@media (max-width: 900px) { .db-stats-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .db-stats-grid { grid-template-columns: 1fr; } }
+
+.db-stat-card {
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 20px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all 200ms;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+  font-family: inherit;
+}
+.db-stat-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--c);
+  border-radius: 2px 0 0 2px;
+}
+.db-stat-card:hover {
+  box-shadow: 0 8px 25px rgba(0,0,0,.1);
+  transform: translateY(-2px);
+}
+.db-stat-icon { font-size: 1.6rem; flex-shrink: 0; }
+.db-stat-body { flex: 1; min-width: 0; }
+.db-stat-label { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; display: block; }
+.db-stat-value { font-size: 1.3rem; font-weight: 800; color: var(--text-primary); font-family: 'Poppins', sans-serif; display: block; margin: 3px 0; }
+.db-stat-sub { font-size: 11.5px; color: var(--text-muted); display: block; }
+
+/* ── Charts grid ─────────────────────────── */
+.db-charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+@media (max-width: 768px) { .db-charts-grid { grid-template-columns: 1fr; } }
+
+/* ── Card ────────────────────────────────── */
+.db-card {
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 20px 22px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 20px;
+}
+
+.db-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.db-card-badge {
+  font-size: 11.5px;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: var(--text-muted);
+  padding: 3px 9px;
+  border-radius: 99px;
+}
+
+/* ── Bars ────────────────────────────────── */
+.db-bars { display: flex; flex-direction: column; gap: 10px; }
+
+.db-bar-row {
+  display: grid;
+  grid-template-columns: 160px 1fr 40px;
+  align-items: center;
+  gap: 10px;
+}
+@media (max-width: 480px) { .db-bar-row { grid-template-columns: 120px 1fr 36px; } }
+
+.db-bar-lbl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  overflow: hidden;
+}
+.db-bar-lbl span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.db-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.db-bar-track {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.db-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 600ms ease;
+}
+
+.db-bar-n {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+.db-empty { font-size: 13px; color: var(--text-muted); padding: 12px 0; }
+
+/* ── Quick actions ───────────────────────── */
+.db-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.db-quick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  cursor: pointer;
+  transition: all 180ms;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text-primary);
+  text-align: center;
+  width: 100%;
+}
+.db-quick:hover {
+  border-color: var(--c);
+  background: color-mix(in srgb, var(--c) 5%, #fff);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--c) 20%, transparent);
+}
+.db-quick-icon { font-size: 1.4rem; line-height: 1; color: inherit; }
+.db-quick-label { font-size: 12.5px; font-weight: 700; color: var(--text-primary); }
+.db-quick-sub   { font-size: 11px; color: var(--text-muted); }
+

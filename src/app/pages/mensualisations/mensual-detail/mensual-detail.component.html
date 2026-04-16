@@ -1,0 +1,423 @@
+<!-- Loading -->
+@if (loading()) {
+  <div class="md-loading">
+    <div class="md-spinner"></div>
+    <span>Chargement du financement…</span>
+  </div>
+}
+
+<!-- Error -->
+@else if (error()) {
+  <div class="md-error">
+    <lucide-icon name="alert-circle" [size]="32" color="#ef4444"></lucide-icon>
+    <span>{{ error() }}</span>
+    <button class="md-back-btn" (click)="back()">← Retour</button>
+  </div>
+}
+
+<!-- Not found -->
+@else if (!financing()) {
+  <div class="md-error">
+    <lucide-icon name="search-x" [size]="32" color="#aaa"></lucide-icon>
+    <span>Financement introuvable</span>
+    <button class="md-back-btn" (click)="back()">← Retour</button>
+  </div>
+}
+
+<!-- Content -->
+@else {
+  <div class="md-root">
+
+    <!-- ── Header ────────────────────────────────────────────────────────── -->
+    <header class="md-header">
+      <button class="md-back-btn" (click)="back()">
+        <lucide-icon name="arrow-left" [size]="16"></lucide-icon>
+        Mensualisations
+      </button>
+      <div class="md-header-center">
+        <h1 class="md-title">
+          <lucide-icon name="droplets" [size]="22" color="#667eea"></lucide-icon>
+          {{ financing()!.well?.code || 'Puits' }}
+        </h1>
+        <span class="md-donor-name">{{ financing()!.donorName }}</span>
+      </div>
+      <span class="md-status-pill"
+        [style.color]="statusCfg().color"
+        [style.background]="statusCfg().bg">
+        {{ statusCfg().label }}
+      </span>
+    </header>
+
+    <div class="md-body">
+
+      <!-- ── Récap cards ─────────────────────────────────────────────────── -->
+      <section class="md-section md-recap">
+        <div class="md-recap-grid">
+
+          <div class="md-recap-card md-card--wells">
+            <div class="md-recap-num">{{ nbWellsDone() }}</div>
+            <div class="md-recap-label">{{ nbWellsDone() <= 1 ? 'puits financé' : 'puits financés' }}</div>
+            <div class="md-recap-sub">au total</div>
+          </div>
+
+          <div class="md-recap-card md-card--progress">
+            <div class="md-recap-num">{{ currentWellPct() | number:'1.0-0' }}%</div>
+            <div class="md-recap-label">puits en cours</div>
+            <div class="md-progress-bar">
+              <div class="md-progress-fill" [style.width.%]="currentWellPct()"></div>
+            </div>
+            <div class="md-recap-sub">
+              {{ fmt(totalValidated() % (financing()!.totalTarget ?? 370)) }} € / {{ financing()!.totalTarget ?? 370 }} €
+            </div>
+          </div>
+
+          <div class="md-recap-card md-card--total">
+            <div class="md-recap-num">{{ fmt(totalValidated()) }} €</div>
+            <div class="md-recap-label">total validé</div>
+            <div class="md-recap-sub">tous puits confondus</div>
+          </div>
+
+          <div class="md-recap-card md-card--next">
+            <div class="md-recap-num">
+              {{ activeEngagement()?.nextPaymentDate ? fmtDate(activeEngagement()!.nextPaymentDate!) : '—' }}
+            </div>
+            <div class="md-recap-label">prochain paiement</div>
+            <div class="md-recap-sub">
+              {{ activeEngagement() ? ((activeEngagement()!.instalmentAmount ?? 37) + ' € prévu') : 'aucun engagement actif' }}
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Contact bar -->
+        <div class="md-contact-bar">
+          <span>
+            <lucide-icon name="mail" [size]="14"></lucide-icon>
+            {{ financing()!.donorEmail || '—' }}
+          </span>
+          <span>
+            <lucide-icon name="phone" [size]="14"></lucide-icon>
+            {{ financing()!.donorPhone || '—' }}
+          </span>
+          <span>
+            <lucide-icon name="globe" [size]="14"></lucide-icon>
+            Zone : <strong>{{ financing()!.zone || '—' }}</strong>
+          </span>
+          @if (financing()!.hasAnomaly) {
+            <span class="md-anomaly-badge">
+              <lucide-icon name="triangle-alert" [size]="13"></lucide-icon>
+              {{ financing()!.anomalyReason }}
+            </span>
+          }
+        </div>
+      </section>
+
+      <!-- ── Décomposition par puits ─────────────────────────────────────── -->
+      @if (wellsBreakdown().length > 0) {
+        <section class="md-section">
+          <h2 class="md-section-title">
+            <lucide-icon name="droplets" [size]="18" color="#667eea"></lucide-icon>
+            Financement par puits ({{ wellsBreakdown().length }})
+          </h2>
+          <div class="md-well-breakdown">
+            @for (w of wellsBreakdown(); track w.idx) {
+              <div class="md-wb-card" [class.md-wb--complete]="w.status === 'COMPLETE'" [class.md-wb--inprogress]="w.status === 'EN_COURS'">
+                <div class="md-wb-header">
+                  <div class="md-wb-title">
+                    <span class="md-wb-num">Puits #{{ w.idx }}</span>
+                    @if (w.status === 'COMPLETE') {
+                      <span class="md-wb-badge md-wb-badge--done">
+                        <lucide-icon name="circle-check-big" [size]="12"></lucide-icon> Complété
+                      </span>
+                    } @else {
+                      <span class="md-wb-badge md-wb-badge--wip">
+                        <lucide-icon name="clock" [size]="12"></lucide-icon> En cours
+                      </span>
+                    }
+                  </div>
+                  <div class="md-wb-amount">
+                    <strong>{{ fmt(w.total) }} €</strong>
+                    <span> / {{ financing()!.totalTarget ?? 370 }} €</span>
+                  </div>
+                </div>
+
+                <div class="md-wb-bar">
+                  <div class="md-wb-fill" [style.width.%]="wbPct(w)"
+                    [style.background]="w.status === 'COMPLETE' ? '#22c55e' : '#3b82f6'"></div>
+                </div>
+
+                <div class="md-wb-payments">
+                  @for (p of w.payments; track $index) {
+                    <div class="md-wb-pym" [class.md-wb-pym--split]="p._split">
+                      <span class="md-wb-pym-date">{{ fmtDate(p.date) }}</span>
+                      <span class="md-wb-pym-type">
+                        @if (p.recurring) {
+                          <lucide-icon name="refresh-cw" [size]="11"></lucide-icon>
+                        } @else {
+                          <lucide-icon name="banknote" [size]="11"></lucide-icon>
+                        }
+                        {{ p._split ? ' (report)' : (p.payment_method_name === 'IBAN' ? ' IBAN' : (' ' + (p.payment_method_name || ''))) }}
+                      </span>
+                      <span class="md-wb-pym-amount">{{ fmt(p.amount) }} €</span>
+                      <span class="md-wb-pym-status">{{ p.payment_status }}</span>
+                    </div>
+                  }
+                  @if (w.status === 'EN_COURS' && w.remaining && w.remaining > 0) {
+                    <div class="md-wb-remaining">
+                      <span>Reste à collecter :</span>
+                      <strong>{{ fmt(w.remaining) }} €</strong>
+                      <span class="md-wb-months">
+                        (~{{ ceilMonths(w.remaining, activeEngagement()?.instalmentAmount ?? 37) }} mois)
+                      </span>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- ── Engagements Ohme ────────────────────────────────────────────── -->
+      @if ((financing()!.engagements?.length ?? 0) > 0) {
+        <section class="md-section">
+          <h2 class="md-section-title">
+            <lucide-icon name="link" [size]="18" color="#667eea"></lucide-icon>
+            Engagements Ohme ({{ financing()!.engagements!.length }})
+          </h2>
+          <div class="md-engagements">
+            @for (eng of financing()!.engagements!; track eng.id) {
+              <div class="md-engagement-card" [class.md-eng--suspended]="eng.status === 'SUSPENDU'">
+                <div class="md-eng-header">
+                  <div class="md-eng-meta">
+                    <span class="md-eng-source">{{ eng.source }}</span>
+                    <span class="md-eng-campaign">{{ eng.campaignName || eng.campaignCode || '—' }}</span>
+                    @if (eng.ohmeEngagementId) {
+                      <span class="md-eng-id">#{{ eng.ohmeEngagementId.slice(-6) }}</span>
+                    }
+                  </div>
+                  <span class="md-eng-status"
+                    [style.color]="engStatusCfg(eng.status).color"
+                    [style.background]="engStatusCfg(eng.status).bg">
+                    {{ engStatusCfg(eng.status).label }}
+                  </span>
+                </div>
+                <div class="md-eng-stats">
+                  <div class="md-eng-stat">
+                    <span class="md-stat-val">{{ eng.paidCount }} mensualités</span>
+                    <span class="md-stat-lbl">depuis Ohme</span>
+                  </div>
+                  <div class="md-eng-stat">
+                    <span class="md-stat-val">{{ fmt(eng.totalPaid) }} €</span>
+                    <span class="md-stat-lbl">payé</span>
+                  </div>
+                  <div class="md-eng-stat">
+                    <span class="md-stat-val">{{ fmt(eng.instalmentAmount ?? 0) }} € / mois</span>
+                    <span class="md-stat-lbl">montant</span>
+                  </div>
+                  <div class="md-eng-stat">
+                    <span class="md-stat-val">{{ fmtDate(eng.firstPaymentDate ?? '') }}</span>
+                    <span class="md-stat-lbl">1er paiement</span>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- ── Paiements ponctuels ─────────────────────────────────────────── -->
+      @if ((financing()!.oneOffPayments?.length ?? 0) > 0) {
+        <section class="md-section">
+          <h2 class="md-section-title">
+            <lucide-icon name="banknote" [size]="18" color="#667eea"></lucide-icon>
+            Paiements ponctuels ({{ financing()!.oneOffPayments!.length }})
+          </h2>
+          <div class="md-oneoffs">
+            @for (p of financing()!.oneOffPayments!; track p.id) {
+              <div class="md-oneoff-row" [class.md-oneoff--anomaly]="p.hasAnomaly">
+                <span class="md-oo-date">{{ fmtDate(p.paymentDate ?? '') }}</span>
+                <span class="md-oo-amount">{{ fmt(p.amount) }} €</span>
+                <span class="md-oo-method">{{ p.paymentMethod || '—' }}</span>
+                <span class="md-oo-campaign">{{ p.campaignName || p.campaignCode || '—' }}</span>
+                @if (p.hasAnomaly) {
+                  <span class="md-oo-flag"><lucide-icon name="triangle-alert" [size]="14" color="#ef4444"></lucide-icon></span>
+                }
+              </div>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- ── Paiements sans source ──────────────────────────────────────── -->
+      @if (unattributed().length > 0) {
+        <section class="md-section md-section--alert">
+          <h2 class="md-section-title md-title--alert">
+            <lucide-icon name="triangle-alert" [size]="18" color="#f59e0b"></lucide-icon>
+            Paiements sans source ({{ unattributed().length }})
+            <span class="md-alert-sub">Ces paiements semblent liés à un puits mais n'ont pas de campagne assignée</span>
+          </h2>
+
+          <div class="md-unattr-list">
+            @for (p of unattributed(); track p.id) {
+              <div class="md-unattr-card">
+                <div class="md-unattr-info">
+                  <div class="md-unattr-row">
+                    <span class="md-unattr-date">
+                      <lucide-icon name="calendar" [size]="13"></lucide-icon>
+                      {{ fmtDate(p.date) }}
+                    </span>
+                    <span class="md-unattr-amount">
+                      <lucide-icon name="euro" [size]="13"></lucide-icon>
+                      {{ fmt(p.amount) }} €
+                    </span>
+                    <span class="md-unattr-method">
+                      <lucide-icon name="building-2" [size]="13"></lucide-icon>
+                      {{ p.payment_method_name || '—' }}
+                    </span>
+                    <span class="md-unattr-status">{{ p.payment_status }}</span>
+                  </div>
+                  <div class="md-source-selector">
+                    <label class="md-source-label">
+                      <lucide-icon name="map-pin" [size]="12"></lucide-icon>
+                      Source de paiement :
+                    </label>
+                    <select class="md-source-select"
+                      [value]="getSelectedSource(p.id).code"
+                      (change)="onSourceChange(p.id, $any($event.target).value)">
+                      <option value="">— Sélectionner —</option>
+                      @for (s of effectiveSources(); track s.id) {
+                        <option [value]="s.code ?? s.id">{{ s.name }}</option>
+                      }
+                    </select>
+                  </div>
+                </div>
+                <div class="md-unattr-actions">
+                  <button class="md-btn-confirm"
+                    [disabled]="confirming() === p.id || !getSelectedSource(p.id).code"
+                    (click)="attributePayment(p)">
+                    @if (confirming() === p.id) {
+                      <span class="btn-spinner-sm"></span>
+                    } @else {
+                      <lucide-icon name="circle-check-big" [size]="13"></lucide-icon>
+                    }
+                    Confirmer
+                  </button>
+                  <button class="md-btn-ignore" (click)="ignoreUnattributed(p.id)">
+                    Ignorer
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- ── Commentaires internes ──────────────────────────────────────── -->
+      <section class="md-section md-comments">
+        <h2 class="md-section-title">
+          <lucide-icon name="message-square" [size]="18" color="#667eea"></lucide-icon>
+          Commentaires internes ({{ comments().length }})
+        </h2>
+
+        <!-- Formulaire ajout -->
+        <div class="md-comment-form">
+          <textarea class="md-comment-input"
+            placeholder="Ajouter un commentaire interne…"
+            rows="3"
+            [ngModel]="newComment()"
+            (ngModelChange)="newComment.set($event)">
+          </textarea>
+
+          <!-- Lier à un paiement Ohme -->
+          <div class="md-comment-link">
+            <label class="md-comment-link-toggle">
+              <input type="checkbox"
+                [ngModel]="linkEnabled()"
+                (ngModelChange)="linkEnabled.set($event)" />
+              <lucide-icon name="link" [size]="13"></lucide-icon>
+              Lier à un paiement Ohme
+            </label>
+            @if (linkEnabled()) {
+              <div class="md-comment-link-fields">
+                <input class="md-comment-field" placeholder="ID paiement Ohme"
+                  [ngModel]="linkOhmeId()" (ngModelChange)="linkOhmeId.set($event)" />
+                <input class="md-comment-field" type="date"
+                  [ngModel]="linkDate()" (ngModelChange)="linkDate.set($event)" />
+                <input class="md-comment-field" type="number" step="0.01" placeholder="Montant €"
+                  [ngModel]="linkAmount()" (ngModelChange)="linkAmount.set($event)" />
+              </div>
+            }
+          </div>
+
+          <div class="md-comment-actions">
+            <button class="md-btn-confirm"
+              [disabled]="savingComment() || !newComment().trim()"
+              (click)="addComment()">
+              @if (savingComment()) {
+                <span class="btn-spinner-sm"></span> Envoi…
+              } @else {
+                <lucide-icon name="plus" [size]="14"></lucide-icon> Ajouter
+              }
+            </button>
+          </div>
+        </div>
+
+        <!-- Liste commentaires -->
+        <div class="md-comment-list">
+          @if (comments().length === 0) {
+            <div class="md-empty">Aucun commentaire pour l'instant</div>
+          }
+          @for (comment of comments(); track comment.id) {
+            <div class="md-comment-card">
+              <div class="md-comment-header">
+                <div class="md-comment-author">
+                  <div class="md-comment-avatar">
+                    {{ comment.author?.firstName?.[0] }}{{ comment.author?.lastName?.[0] }}
+                  </div>
+                  <div>
+                    <span class="md-comment-name">{{ comment.author?.firstName }} {{ comment.author?.lastName }}</span>
+                    <span class="md-comment-date">{{ fmtDateTime(comment.createdAt ?? '') }}</span>
+                  </div>
+                </div>
+                <div class="md-comment-meta-actions">
+                  @if (comment.ohmePaymentId) {
+                    <span class="md-comment-payment-badge">
+                      <lucide-icon name="credit-card" [size]="12"></lucide-icon>
+                      Paiement #{{ comment.ohmePaymentId.slice(-6) }}
+                      @if (comment.paymentAmount) { — {{ comment.paymentAmount.toFixed(2) }} € }
+                      @if (comment.paymentDate) { — {{ fmtDate(comment.paymentDate) }} }
+                    </span>
+                  }
+                  <button class="md-comment-edit-btn" (click)="startEdit(comment)" title="Modifier">
+                    <lucide-icon name="pencil" [size]="13"></lucide-icon>
+                  </button>
+                  <button class="md-comment-del-btn" (click)="deleteComment(comment.id)" title="Supprimer">
+                    <lucide-icon name="trash-2" [size]="13"></lucide-icon>
+                  </button>
+                </div>
+              </div>
+
+              @if (editingId() === comment.id) {
+                <div class="md-comment-edit">
+                  <textarea class="md-comment-input" rows="3"
+                    [ngModel]="editContent()" (ngModelChange)="editContent.set($event)">
+                  </textarea>
+                  <div class="md-edit-actions">
+                    <button class="md-btn-confirm" (click)="saveEdit(comment.id)">
+                      <lucide-icon name="check" [size]="13"></lucide-icon> Sauvegarder
+                    </button>
+                    <button class="md-btn-ignore" (click)="editingId.set(null)">Annuler</button>
+                  </div>
+                </div>
+              } @else {
+                <p class="md-comment-content">{{ comment.content }}</p>
+              }
+            </div>
+          }
+        </div>
+      </section>
+
+    </div>
+  </div>
+}

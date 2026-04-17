@@ -400,6 +400,69 @@
   justify-content: center;
 }
 
+/* ── Nav item collapsed-group ────────────────────────────────────── */
+/* Aucun style supplémentaire : alignement identique aux autres nav-item */
+
+.nav-item--collapsed-group.active {
+  color: #fff;
+  background: color-mix(in srgb, var(--pole-color) 18%, #152234);
+  border-left-color: var(--pole-color);
+}
+
+/* ── Flyout panel ────────────────────────────────────────────────── */
+.sidebar-flyout {
+  position: fixed;
+  left: 80px;
+  z-index: 600;
+  background: #0D1B2A;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 12px;
+  padding: 6px;
+  min-width: 200px;
+  box-shadow: 4px 8px 28px rgba(0,0,0,.35);
+  animation: flyout-in 140ms ease;
+}
+
+@keyframes flyout-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.flyout-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--pole-color);
+  padding: 6px 10px 4px;
+  font-family: 'Poppins', sans-serif;
+}
+
+.flyout-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  color: #94A3B8;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 140ms, color 140ms;
+  white-space: nowrap;
+}
+
+.flyout-item:hover {
+  background: rgba(255,255,255,.08);
+  color: #E2E8F0;
+}
+
+.flyout-item--active {
+  background: color-mix(in srgb, var(--pole-color) 20%, #152234);
+  color: #fff;
+  font-weight: 600;
+}
+
 /* ══════════════════════════════════════════════════
    RESPONSIVE — Tablet (≤ 1024px)
 ══════════════════════════════════════════════════ */
@@ -415,6 +478,9 @@
   }
 
   .main-content { padding: 24px; }
+
+  /* Flyout décalé à 64px sur tablette */
+  .sidebar-flyout { left: 64px; }
 }
 
 /* ══════════════════════════════════════════════════

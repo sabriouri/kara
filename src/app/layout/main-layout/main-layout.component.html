@@ -57,10 +57,12 @@
         @if (item.separator) {
           <div class="nav-separator"></div>
         } @else if (item.children) {
-          <div class="nav-group">
-            <button class="nav-item nav-group-btn" (click)="toggleMenu(item.label)">
-              <lucide-icon [name]="item.icon" [size]="16" class="nav-icon"></lucide-icon>
-              @if (!collapsed()) {
+
+          @if (!collapsed()) {
+            <!-- Sidebar ouverte : accordéon classique -->
+            <div class="nav-group">
+              <button class="nav-item nav-group-btn" (click)="toggleMenu(item.label)">
+                <lucide-icon [name]="item.icon" [size]="16" class="nav-icon"></lucide-icon>
                 <span>{{ item.label }}</span>
                 <lucide-icon
                   name="chevron-down"
@@ -68,21 +70,35 @@
                   class="chevron"
                   [class.open]="isMenuOpen(item.label)"
                 ></lucide-icon>
+              </button>
+              @if (isMenuOpen(item.label)) {
+                <div class="nav-children">
+                  @for (child of item.children; track child.label) {
+                    <a class="nav-child" [routerLink]="child.route" routerLinkActive="active"
+                       [routerLinkActiveOptions]="{ exact: true }">
+                      <lucide-icon [name]="child.icon" [size]="13"></lucide-icon>
+                      <span>{{ child.label }}</span>
+                    </a>
+                  }
+                </div>
               }
+            </div>
+          } @else {
+            <!-- Sidebar réduite : icône avec flyout au survol -->
+            <button
+              class="nav-item nav-item--collapsed-group"
+              [class.active]="flyout()?.label === item.label"
+              [title]="item.label"
+              (mouseenter)="openFlyout($event, item)"
+              (mouseleave)="scheduleFlyoutClose()"
+            >
+              <lucide-icon [name]="item.icon" [size]="16" class="nav-icon"></lucide-icon>
             </button>
-            @if (isMenuOpen(item.label) && !collapsed()) {
-              <div class="nav-children">
-                @for (child of item.children; track child.label) {
-                  <a class="nav-child" [routerLink]="child.route" routerLinkActive="active">
-                    <lucide-icon [name]="child.icon" [size]="13"></lucide-icon>
-                    <span>{{ child.label }}</span>
-                  </a>
-                }
-              </div>
-            }
-          </div>
+          }
+
         } @else {
-          <a class="nav-item" [routerLink]="item.route" routerLinkActive="active">
+          <a class="nav-item" [routerLink]="item.route" routerLinkActive="active"
+            [title]="collapsed() ? item.label : ''">
             <lucide-icon [name]="item.icon" [size]="16" class="nav-icon"></lucide-icon>
             @if (!collapsed()) {
               <span>{{ item.label }}</span>
@@ -110,6 +126,30 @@
       </button>
     </div>
   </aside>
+
+  <!-- ── Flyout sous-menu (sidebar réduite) ──────────────────────── -->
+  @if (collapsed() && flyout()) {
+    <div
+      class="sidebar-flyout"
+      [style.top.px]="flyout()!.top"
+      (mouseenter)="cancelFlyoutClose()"
+      (mouseleave)="scheduleFlyoutClose()"
+    >
+      <div class="flyout-title">{{ flyout()!.label }}</div>
+      @for (child of flyout()!.children; track child.label) {
+        <a
+          class="flyout-item"
+          [routerLink]="child.route"
+          routerLinkActive="flyout-item--active"
+          [routerLinkActiveOptions]="{ exact: true }"
+          (click)="flyout.set(null)"
+        >
+          <lucide-icon [name]="child.icon" [size]="14"></lucide-icon>
+          <span>{{ child.label }}</span>
+        </a>
+      }
+    </div>
+  }
 
   <main class="main-content">
     <!-- Mobile topbar -->

@@ -5,6 +5,12 @@ import { LucideAngularModule } from 'lucide-angular';
 import { AuthService } from '../../core/services/auth.service';
 import { PoleService } from '../../core/services/pole.service';
 
+export interface FlyoutState {
+  label: string;
+  children: NavItem[];
+  top: number;
+}
+
 export interface NavItem {
   label: string;
   icon: string;
@@ -33,6 +39,8 @@ export class MainLayoutComponent {
 
   collapsed  = signal(false);
   openMenus  = signal<Set<string>>(new Set());
+  flyout     = signal<FlyoutState | null>(null);
+  private _flyoutClose: ReturnType<typeof setTimeout> | null = null;
 
   // ── Nav commun présent dans chaque pôle ──────────────────────────────────
   private readonly commonNav: NavItem[] = [
@@ -118,5 +126,24 @@ export class MainLayoutComponent {
   }
 
   isMenuOpen(label: string): boolean { return this.openMenus().has(label); }
-  toggleSidebar(): void { this.collapsed.set(!this.collapsed()); }
+  toggleSidebar(): void {
+    this.collapsed.set(!this.collapsed());
+    this.flyout.set(null);
+  }
+
+  openFlyout(event: MouseEvent, item: NavItem): void {
+    if (!this.collapsed() || !item.children?.length) return;
+    if (this._flyoutClose) { clearTimeout(this._flyoutClose); this._flyoutClose = null; }
+    const btn = event.currentTarget as HTMLElement;
+    const rect = btn.getBoundingClientRect();
+    this.flyout.set({ label: item.label, children: item.children, top: rect.top });
+  }
+
+  scheduleFlyoutClose(): void {
+    this._flyoutClose = setTimeout(() => this.flyout.set(null), 120);
+  }
+
+  cancelFlyoutClose(): void {
+    if (this._flyoutClose) { clearTimeout(this._flyoutClose); this._flyoutClose = null; }
+  }
 }

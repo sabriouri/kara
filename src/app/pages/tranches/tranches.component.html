@@ -67,7 +67,7 @@
               class="tr-col-body"
               cdkDropList
               [id]="'col-' + s.id"
-              [cdkDropListData]="columnData()[s.id] ?? []"
+              [cdkDropListData]="columnData()[s.id]"
               [cdkDropListConnectedTo]="dropListIds"
               (cdkDropListDropped)="onDrop($event, s.id)"
             >

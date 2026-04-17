@@ -48,9 +48,9 @@ export class AuthService {
     const token = this.getToken();
     if (!token) { this._loading.set(false); return; }
 
-    this.http.get<{ data: { user: User } }>(`${this.API}/auth/me`).subscribe({
+    this.http.get<{ data: User }>(`${this.API}/auth/me`).subscribe({
       next: res => {
-        this._user.set(res.data.user);
+        this._user.set(res.data);
         this._loading.set(false);
       },
       error: () => {

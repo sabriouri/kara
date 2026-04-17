@@ -2,8 +2,10 @@ import { Component, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { LucideAngularModule } from 'lucide-angular';
+import { TicketService } from '../../core/services/ticket.service';
+import { UserService } from '../../core/services/user.service';
+import { WellService } from '../../core/services/well.service';
 
 interface TicketUser {
   id: string;
@@ -44,8 +46,6 @@ interface Ticket {
   styleUrl: './tickets.component.css',
 })
 export class TicketsComponent implements OnInit {
-  private readonly API = '/api';
-
   tickets = signal<Ticket[]>([]);
   loading = signal(true);
 
@@ -100,7 +100,9 @@ export class TicketsComponent implements OnInit {
   ];
 
   constructor(
-    private http: HttpClient,
+    private ticketService: TicketService,
+    private userService: UserService,
+    private wellService: WellService,
     private router: Router,
   ) {}
 
@@ -116,7 +118,7 @@ export class TicketsComponent implements OnInit {
     if (this.filterPriority()) params['priority'] = this.filterPriority();
     if (this.filterStatus()) params['status'] = this.filterStatus();
 
-    this.http.get<{ data: { tickets: Ticket[] } }>(`${this.API}/tickets`, { params }).subscribe({
+    this.ticketService.getAll(params).subscribe({
       next: res => {
         this.tickets.set(res.data?.tickets ?? []);
         this.loading.set(false);
@@ -152,7 +154,7 @@ export class TicketsComponent implements OnInit {
 
   loadModalUsers(): void {
     this.modalUsersLoading.set(true);
-    this.http.get<{ data: { users: TicketUser[] } }>(`${this.API}/users`).subscribe({
+    this.userService.getAll().subscribe({
       next: res => {
         this.modalUsers.set(res.data?.users ?? []);
         this.modalUsersLoading.set(false);
@@ -163,7 +165,7 @@ export class TicketsComponent implements OnInit {
 
   loadModalWells(): void {
     this.modalWellsLoading.set(true);
-    this.http.get<{ data: { wells: Well[] } }>(`${this.API}/wells`).subscribe({
+    this.wellService.getAll().subscribe({
       next: res => {
         this.modalWells.set(res.data?.wells ?? []);
         this.modalWellsLoading.set(false);
@@ -185,7 +187,7 @@ export class TicketsComponent implements OnInit {
     if (this.newWellId()) body['wellId'] = this.newWellId();
     if (this.newDueDate()) body['dueDate'] = this.newDueDate();
 
-    this.http.post(`${this.API}/tickets`, body).subscribe({
+    this.ticketService.create(body).subscribe({
       next: () => {
         this.createLoading.set(false);
         this.closeCreateModal();

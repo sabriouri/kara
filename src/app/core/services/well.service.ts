@@ -31,7 +31,20 @@ export class WellService {
     return this.http.patch<any>(`${this.API}/wells/${id}`, data);
   }
 
-  addComment(id: string, content: string): Observable<any> {
-    return this.http.post<any>(`${this.API}/wells/${id}/comments`, { content });
+  addComment(id: string, data: string | Record<string, any>): Observable<any> {
+    const body = typeof data === 'string' ? { content: data } : data;
+    return this.http.post<any>(`${this.API}/wells/${id}/comments`, body);
+  }
+
+  getComments(id: string): Observable<any> {
+    return this.http.get<any>(`${this.API}/wells/${id}/comments`);
+  }
+
+  updateComment(wellId: string, commentId: string, data: any): Observable<any> {
+    return this.http.put<any>(`${this.API}/wells/${wellId}/comments/${commentId}`, data);
+  }
+
+  deleteComment(wellId: string, commentId: string): Observable<any> {
+    return this.http.delete<any>(`${this.API}/wells/${wellId}/comments/${commentId}`);
   }
 }

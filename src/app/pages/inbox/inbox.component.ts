@@ -4,9 +4,10 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { LucideAngularModule } from 'lucide-angular';
+import { InboxService } from '../../core/services/inbox.service';
+import { EmailTemplateService } from '../../core/services/email-template.service';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -121,8 +122,6 @@ export const STATUS_META: Record<ConvStatus, { label: string; color: string }> =
   styleUrl: './inbox.component.css',
 })
 export class InboxComponent implements OnInit, AfterViewChecked {
-  private readonly API = '/api';
-
   @ViewChild('messagesEnd') messagesEnd!: ElementRef;
   @ViewChild('replyEditor') replyEditor!: ElementRef<HTMLDivElement>;
 
@@ -170,7 +169,7 @@ export class InboxComponent implements OnInit, AfterViewChecked {
     return list;
   });
 
-  constructor(private http: HttpClient, private sanitizer: DomSanitizer) {}
+  constructor(private inboxService: InboxService, private emailTemplateService: EmailTemplateService, private sanitizer: DomSanitizer) {}
 
   ngOnInit(): void {
     this.loadConversations();
@@ -197,7 +196,7 @@ export class InboxComponent implements OnInit, AfterViewChecked {
     if (this.filterStatus())  params['status']  = this.filterStatus();
     if (this.filterChannel()) params['channel'] = this.filterChannel();
 
-    this.http.get<any>(`${this.API}/conversations`, { params }).subscribe({
+    this.inboxService.getAll(params).subscribe({
       next: res => {
         this.conversations.set(res?.data?.conversations ?? res?.data ?? []);
         this.loading.set(false);
@@ -207,14 +206,14 @@ export class InboxComponent implements OnInit, AfterViewChecked {
   }
 
   loadStats(): void {
-    this.http.get<any>(`${this.API}/conversations/stats/summary`).subscribe({
+    this.inboxService.getStats().subscribe({
       next: res => this.stats.set(res?.data ?? {}),
       error: () => {},
     });
   }
 
   loadTemplates(): void {
-    this.http.get<any>(`${this.API}/email-templates`).subscribe({
+    this.emailTemplateService.getAll().subscribe({
       next: res => {
         const raw = res?.data?.templates ?? res?.data ?? res ?? [];
         this.templates.set(Array.isArray(raw) ? raw : []);
@@ -225,7 +224,7 @@ export class InboxComponent implements OnInit, AfterViewChecked {
 
   sync(): void {
     this.syncing.set(true);
-    this.http.post<any>(`${this.API}/conversations/sync`, {}).subscribe({
+    this.inboxService.sync().subscribe({
       next: () => { this.syncing.set(false); this.loadConversations(); this.loadStats(); },
       error: () => this.syncing.set(false),
     });
@@ -247,7 +246,7 @@ export class InboxComponent implements OnInit, AfterViewChecked {
     this.replyHtml.set('');
     this.detailLoading.set(true);
 
-    this.http.get<any>(`${this.API}/conversations/${conv.id}`).subscribe({
+    this.inboxService.getById(conv.id).subscribe({
       next: res => {
         const data: Conversation = res?.data ?? res;
         this.selected.set(data);
@@ -269,7 +268,7 @@ export class InboxComponent implements OnInit, AfterViewChecked {
   updateStatus(status: ConvStatus): void {
     const conv = this.selected();
     if (!conv) return;
-    this.http.put<any>(`${this.API}/conversations/${conv.id}/status`, { status }).subscribe({
+    this.inboxService.updateStatus(conv.id, status).subscribe({
       next: () => {
         this.selected.update(c => c ? { ...c, status } : c);
         this.conversations.update(list =>
@@ -293,7 +292,7 @@ export class InboxComponent implements OnInit, AfterViewChecked {
     };
     if (isEmail) payload['subject'] = this.replySubject();
 
-    this.http.post<any>(`${this.API}/conversations/${conv.id}/reply`, payload).subscribe({
+    this.inboxService.reply(conv.id, payload).subscribe({
       next: res => {
         if (res?.success || res?.data) {
           this.messages.update(list => [...list, {
@@ -346,7 +345,7 @@ export class InboxComponent implements OnInit, AfterViewChecked {
   linkDonor(ohmeId: string): void {
     const conv = this.selected();
     if (!conv) return;
-    this.http.post<any>(`${this.API}/conversations/${conv.id}/link-donor`, { ohmeId }).subscribe({
+    this.inboxService.linkDonor(conv.id, ohmeId).subscribe({
       next: () => { this.donorMode.set('view'); this.selectConversation(conv); },
       error: () => {},
     });
@@ -355,7 +354,7 @@ export class InboxComponent implements OnInit, AfterViewChecked {
   createOhmeDonor(): void {
     const conv = this.selected();
     if (!conv) return;
-    this.http.post<any>(`${this.API}/conversations/${conv.id}/create-donor`, this.newDonorForm()).subscribe({
+    this.inboxService.createDonor(conv.id, this.newDonorForm()).subscribe({
       next: () => { this.donorMode.set('view'); this.selectConversation(conv); },
       error: () => {},
     });
@@ -365,7 +364,7 @@ export class InboxComponent implements OnInit, AfterViewChecked {
     const q = this.donorSearch().trim();
     if (!q) return;
     this.donorSearching.set(true);
-    this.http.get<any>(`${this.API}/conversations/donors/search`, { params: { q } }).subscribe({
+    this.inboxService.searchDonors({ q }).subscribe({
       next: res => { this.donorResults.set(res?.data ?? []); this.donorSearching.set(false); },
       error: () => this.donorSearching.set(false),
     });
@@ -375,7 +374,7 @@ export class InboxComponent implements OnInit, AfterViewChecked {
     this.historyConv.set(conv);
     this.historyLoading.set(true);
     this.historyMessages.set([]);
-    this.http.get<any>(`${this.API}/conversations/${conv.id}`).subscribe({
+    this.inboxService.getById(conv.id).subscribe({
       next: res => {
         const data: Conversation = res?.data ?? res;
         this.historyConv.set(data);

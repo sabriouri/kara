@@ -34,4 +34,14 @@ export class InstalmentService {
   mergeDuplicates(keepId: string, removeId: string): Observable<any> {
     return this.http.post<any>(`${this.API}/instalments/merge`, { keepId, removeId });
   }
+
+  getFinancingById(id: string): Observable<any> {
+    return this.http.get<any>(`${this.API}/instalments/financing/${id}`);
+  }
+  getDonorPayments(contactId: string): Observable<any> {
+    return this.http.get<any>(`${this.API}/instalments/donor-payments/${contactId}`);
+  }
+  attributePayment(id: string, data: any): Observable<any> {
+    return this.http.put<any>(`${this.API}/instalments/attribute-payment/${id}`, data);
+  }
 }

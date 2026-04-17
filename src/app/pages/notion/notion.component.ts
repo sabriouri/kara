@@ -8,9 +8,9 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { LucideAngularModule } from 'lucide-angular';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { NotionService } from '../../core/services/notion.service';
 
 // ── Poles ────────────────────────────────────────────────────────────────────
 
@@ -96,7 +96,7 @@ export class NotionComponent implements OnInit {
   private searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
-    private http: HttpClient,
+    private notionService: NotionService,
     private sanitizer: DomSanitizer,
   ) {}
 
@@ -115,7 +115,7 @@ export class NotionComponent implements OnInit {
     if (this.filterTag())  params['tag']  = this.filterTag();
     if (this.filterMine()) params['mine'] = 'true';
 
-    this.http.get<any>('/api/notion', { params }).subscribe({
+    this.notionService.getAll(params).subscribe({
       next: (res) => {
         let data: Note[] = [];
         if (res?.data?.success && res.data.data) {
@@ -136,7 +136,7 @@ export class NotionComponent implements OnInit {
   }
 
   loadTags(): void {
-    this.http.get<any>('/api/notion/meta/tags').subscribe({
+    this.notionService.getTags().subscribe({
       next: (res) => {
         let tags: string[] = [];
         if (res?.data?.data) {
@@ -184,7 +184,7 @@ export class NotionComponent implements OnInit {
 
   openNote(noteId: string): void {
     this.editing.set(null);
-    this.http.get<any>(`/api/notion/${noteId}`).subscribe({
+    this.notionService.getById(noteId).subscribe({
       next: (res) => {
         let note: Note | null = null;
         if (res?.data?.data) {
@@ -203,9 +203,10 @@ export class NotionComponent implements OnInit {
     this.saving.set(true);
     const f = this.form();
     const isNew = this.editing() === 'new';
+    const id = this.editing();
     const req$ = isNew
-      ? this.http.post<any>('/api/notion', f)
-      : this.http.put<any>(`/api/notion/${this.editing()}`, f);
+      ? this.notionService.create(f)
+      : this.notionService.update(id!, f);
 
     req$.subscribe({
       next: () => {
@@ -221,7 +222,7 @@ export class NotionComponent implements OnInit {
   confirmDelete(): void {
     const id = this.deleting();
     if (!id) return;
-    this.http.delete<any>(`/api/notion/${id}`).subscribe({
+    this.notionService.delete(id).subscribe({
       next: () => {
         this.deleting.set(null);
         this.selected.set(null);

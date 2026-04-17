@@ -1,9 +1,9 @@
 import { Component, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
+import { ProjectService } from '../../core/services/project.service';
 
 interface ProjectOwner {
   id: string;
@@ -42,8 +42,6 @@ interface Project {
   styleUrl: './projects.component.css',
 })
 export class ProjectsComponent implements OnInit {
-  private readonly API = '/api';
-
   projects      = signal<Project[]>([]);
   loading       = signal(true);
   createModal   = signal(false);
@@ -85,7 +83,7 @@ export class ProjectsComponent implements OnInit {
     { value: 'ANNULE',    label: 'Annulé'       },
   ];
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(private projectService: ProjectService, private router: Router) {}
 
   ngOnInit(): void {
     this.loadProjects();
@@ -93,7 +91,7 @@ export class ProjectsComponent implements OnInit {
 
   loadProjects(): void {
     this.loading.set(true);
-    this.http.get<any>(`${this.API}/projects`).subscribe({
+    this.projectService.getAll().subscribe({
       next: res => {
         const d = res.data ?? res;
         this.projects.set(Array.isArray(d) ? d : (d.projects ?? []));
@@ -124,7 +122,7 @@ export class ProjectsComponent implements OnInit {
   submitCreate(): void {
     if (!this.newTitle().trim()) return;
     this.createLoading.set(true);
-    this.http.post<any>(`${this.API}/projects`, {
+    this.projectService.create({
       title: this.newTitle(),
       description: this.newDescription() || undefined,
       status: this.newStatus(),

@@ -1,8 +1,8 @@
 import { Component, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { LucideAngularModule } from 'lucide-angular';
+import { VirementService } from '../../core/services/virement.service';
 
 interface PaymentSource {
   id: string;
@@ -46,8 +46,6 @@ const MOCK_VIREMENTS: Virement[] = [
   styleUrl: './virements.component.css',
 })
 export class VirementsComponent implements OnInit {
-  private readonly API = '/api';
-
   virements      = signal<Virement[]>(MOCK_VIREMENTS.map(v => ({ ...v, nameInput: v.extractedName })));
   paymentSources = signal<PaymentSource[]>([]);
   loading        = signal(false);
@@ -77,14 +75,14 @@ export class VirementsComponent implements OnInit {
     this.virements().filter(v => v.status === 'VALIDATED').length
   );
 
-  constructor(private http: HttpClient) {}
+  constructor(private virementService: VirementService) {}
 
   ngOnInit(): void {
     this.loadPaymentSources();
   }
 
   loadPaymentSources(): void {
-    this.http.get<{ data: PaymentSource[] }>(`${this.API}/virements/payment-sources`).subscribe({
+    this.virementService.getPaymentSources().subscribe({
       next: res => this.paymentSources.set(res.data ?? []),
       error: () => this.paymentSources.set([
         { id: 'p1', name: 'Campagne Printemps' },
@@ -146,7 +144,7 @@ export class VirementsComponent implements OnInit {
     if (!toValidate.length) return;
 
     this.loading.set(true);
-    this.http.post<{ transfers: Virement[] }>(`${this.API}/virements/validate`, { ids: toValidate.map(v => v.id) }).subscribe({
+    this.virementService.validate({ ids: toValidate.map(v => v.id) }).subscribe({
       next: () => {
         this.virements.update(list =>
           list.map(v => toValidate.find(t => t.id === v.id) ? { ...v, status: 'VALIDATED' } : v)

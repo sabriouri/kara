@@ -1,8 +1,8 @@
 import { Component, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { LucideAngularModule } from 'lucide-angular';
+import { EmailTemplateService } from '../../core/services/email-template.service';
 
 type TemplateCategory = 'PUITS' | 'DONATEUR' | 'RECLAMATION' | 'GENERAL' | 'REMERCIEMENT' | 'RELANCE';
 
@@ -45,8 +45,6 @@ const MOCK_TEMPLATES: EmailTemplate[] = [
   styleUrl: './email-templates.component.css',
 })
 export class EmailTemplatesComponent implements OnInit {
-  private readonly API = '/api';
-
   templates     = signal<EmailTemplate[]>(MOCK_TEMPLATES);
   loading       = signal(false);
   searchQuery   = signal('');
@@ -90,7 +88,7 @@ export class EmailTemplatesComponent implements OnInit {
     }));
   });
 
-  constructor(private http: HttpClient) {}
+  constructor(private emailTemplateService: EmailTemplateService) {}
 
   ngOnInit(): void {
     this.loadTemplates();
@@ -98,11 +96,8 @@ export class EmailTemplatesComponent implements OnInit {
 
   loadTemplates(): void {
     this.loading.set(true);
-    const params: any = {};
-    if (this.categoryFilter()) params.category = this.categoryFilter();
-    if (this.searchQuery())    params.search    = this.searchQuery();
 
-    this.http.get<{ data: { templates: EmailTemplate[] } }>(`${this.API}/email-templates`, { params }).subscribe({
+    this.emailTemplateService.getAll().subscribe({
       next: res => {
         this.templates.set(res.data?.templates ?? []);
         this.loading.set(false);
@@ -175,7 +170,7 @@ export class EmailTemplatesComponent implements OnInit {
       tags:      this.form.tags.split(',').map(s => s.trim()).filter(Boolean),
     };
 
-    this.http.post<{ data: EmailTemplate }>(`${this.API}/email-templates`, payload).subscribe({
+    this.emailTemplateService.create(payload).subscribe({
       next: res => {
         if (res.data) {
           this.templates.update(list => [res.data, ...list]);
@@ -209,7 +204,7 @@ export class EmailTemplatesComponent implements OnInit {
       tags:      this.form.tags.split(',').map(s => s.trim()).filter(Boolean),
     };
 
-    this.http.put<{ data: EmailTemplate }>(`${this.API}/email-templates/${t.id}`, payload).subscribe({
+    this.emailTemplateService.update(t.id, payload).subscribe({
       next: () => {
         this.templates.update(list => list.map(item => item.id === t.id ? { ...item, ...payload, updatedAt: new Date().toISOString() } : item));
         this.saving.set(false);
@@ -227,7 +222,7 @@ export class EmailTemplatesComponent implements OnInit {
     const t = this.selectedTemplate();
     if (!t) return;
 
-    this.http.delete(`${this.API}/email-templates/${t.id}`).subscribe({
+    this.emailTemplateService.delete(t.id).subscribe({
       next: () => {},
       error: () => {},
     });

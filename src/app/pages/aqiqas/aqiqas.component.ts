@@ -1,8 +1,8 @@
 import { Component, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { LucideAngularModule } from 'lucide-angular';
+import { AqiqaService } from '../../core/services/aqiqa.service';
 
 export interface Aqiqa {
   id: string;
@@ -32,8 +32,6 @@ export interface AqiqaStats {
   styleUrl: './aqiqas.component.css',
 })
 export class AqiqasComponent implements OnInit {
-  private readonly API = '/api';
-
   aqiqas      = signal<Aqiqa[]>([]);
   stats       = signal<AqiqaStats | null>(null);
   loading     = signal(true);
@@ -51,7 +49,7 @@ export class AqiqasComponent implements OnInit {
 
   readonly statuses = ['EN_ATTENTE', 'PLANIFIEE', 'EXECUTEE', 'LIVREE', 'ARCHIVE'];
 
-  constructor(private http: HttpClient) {}
+  constructor(private aqiqaService: AqiqaService) {}
 
   ngOnInit(): void {
     this.loadStats();
@@ -60,7 +58,7 @@ export class AqiqasComponent implements OnInit {
 
   loadStats(): void {
     this.statsLoading.set(true);
-    this.http.get<{ data: AqiqaStats }>(`${this.API}/aqiqas/stats`).subscribe({
+    this.aqiqaService.getStats().subscribe({
       next: res => {
         this.stats.set(res.data ?? null);
         this.statsLoading.set(false);
@@ -78,9 +76,7 @@ export class AqiqasComponent implements OnInit {
     if (this.statusFilter()) params.status = this.statusFilter();
     if (this.search()) params.search = this.search();
 
-    this.http.get<{ data: { aqiqas: Aqiqa[]; total: number; totalPages: number } }>(
-      `${this.API}/aqiqas`, { params }
-    ).subscribe({
+    this.aqiqaService.getAll(params).subscribe({
       next: res => {
         this.aqiqas.set(res.data?.aqiqas ?? []);
         this.total.set(res.data?.total ?? 0);
@@ -115,7 +111,7 @@ export class AqiqasComponent implements OnInit {
     this.aqiqas.update(list =>
       list.map(a => a.id === aqiqa.id ? { ...a, status: status as Aqiqa['status'] } : a)
     );
-    this.http.put(`${this.API}/aqiqas/${aqiqa.id}`, { status }).subscribe({
+    this.aqiqaService.update(aqiqa.id, { status }).subscribe({
       error: () => {
         // Rollback on error
         this.aqiqas.update(list =>
@@ -127,7 +123,7 @@ export class AqiqasComponent implements OnInit {
 
   downloadReport(aqiqa: Aqiqa): void {
     this.downloadingId.set(aqiqa.id);
-    this.http.get(`${this.API}/aqiqas/${aqiqa.id}/report`, { responseType: 'blob' }).subscribe({
+    this.aqiqaService.getReport(aqiqa.id).subscribe({
       next: blob => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');

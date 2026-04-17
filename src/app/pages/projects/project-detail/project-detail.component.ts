@@ -2,8 +2,8 @@ import { Component, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { LucideAngularModule } from 'lucide-angular';
+import { ProjectService } from '../../../core/services/project.service';
 
 interface MilestoneTask {
   id: string;
@@ -59,7 +59,6 @@ interface ProjectDetail {
   styleUrl: './project-detail.component.css',
 })
 export class ProjectDetailComponent implements OnInit {
-  private readonly API = '/api';
   private projectId = '';
 
   project            = signal<ProjectDetail | null>(null);
@@ -111,7 +110,7 @@ export class ProjectDetailComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private http: HttpClient,
+    private projectService: ProjectService,
   ) {}
 
   ngOnInit(): void {
@@ -123,7 +122,7 @@ export class ProjectDetailComponent implements OnInit {
 
   loadProject(): void {
     this.loading.set(true);
-    this.http.get<any>(`${this.API}/projects/${this.projectId}`).subscribe({
+    this.projectService.getById(this.projectId).subscribe({
       next: res => {
         const d = res.data ?? res;
         this.project.set(d);
@@ -180,7 +179,7 @@ export class ProjectDetailComponent implements OnInit {
         dueDate: this.milestoneDue() || undefined,
         status: this.milestoneStatus(),
       };
-      this.http.put<any>(`${this.API}/projects/${this.projectId}/milestones/${editing.id}`, body).subscribe({
+      this.projectService.updateMilestone(this.projectId, editing.id, body).subscribe({
         next: () => { this.milestoneLoading.set(false); this.showMilestoneModal.set(false); this.loadProject(); },
         error: () => this.milestoneLoading.set(false),
       });
@@ -193,7 +192,7 @@ export class ProjectDetailComponent implements OnInit {
         order: (this.project()?.milestones.length ?? 0) + 1,
         tasks,
       };
-      this.http.post<any>(`${this.API}/projects/${this.projectId}/milestones`, body).subscribe({
+      this.projectService.createMilestone(this.projectId, body).subscribe({
         next: () => { this.milestoneLoading.set(false); this.showMilestoneModal.set(false); this.loadProject(); },
         error: () => this.milestoneLoading.set(false),
       });
@@ -201,17 +200,14 @@ export class ProjectDetailComponent implements OnInit {
   }
 
   deleteMilestone(id: string): void {
-    this.http.delete<any>(`${this.API}/projects/${this.projectId}/milestones/${id}`).subscribe({
+    this.projectService.deleteMilestone(this.projectId, id).subscribe({
       next: () => this.loadProject(),
     });
   }
 
   // ─── Task CRUD ───────────────────────────────────────────────────────────────
   toggleTask(milestoneId: string, taskId: string, current: boolean): void {
-    this.http.put<any>(
-      `${this.API}/projects/${this.projectId}/milestones/${milestoneId}/tasks/${taskId}`,
-      { isCompleted: !current }
-    ).subscribe({
+    this.projectService.updateTask(this.projectId, milestoneId, taskId, { isCompleted: !current }).subscribe({
       next: () => {
         // Update locally without full reload for snappy UX
         const p = this.project();
@@ -234,10 +230,7 @@ export class ProjectDetailComponent implements OnInit {
     const title = (titles[milestoneId] ?? '').trim();
     if (!title) return;
 
-    this.http.post<any>(
-      `${this.API}/projects/${this.projectId}/milestones/${milestoneId}`,
-      { tasks: [{ title }] }
-    ).subscribe({
+    this.projectService.createTask(this.projectId, milestoneId, { tasks: [{ title }] }).subscribe({
       next: () => {
         this.newTaskTitle.set({ ...this.newTaskTitle(), [milestoneId]: '' });
         this.loadProject();
@@ -274,7 +267,7 @@ export class ProjectDetailComponent implements OnInit {
   inviteMember(): void {
     if (!this.memberEmail().trim()) return;
     this.memberLoading.set(true);
-    this.http.post<any>(`${this.API}/projects/${this.projectId}/members`, {
+    this.projectService.addMember(this.projectId, {
       email: this.memberEmail(),
       role: this.memberRole(),
     }).subscribe({
@@ -290,14 +283,14 @@ export class ProjectDetailComponent implements OnInit {
   }
 
   removeMember(userId: string): void {
-    this.http.delete<any>(`${this.API}/projects/${this.projectId}/members/${userId}`).subscribe({
+    this.projectService.removeMember(this.projectId, userId).subscribe({
       next: () => this.loadProject(),
     });
   }
 
   // ─── Delete project ───────────────────────────────────────────────────────────
   deleteProject(): void {
-    this.http.delete<any>(`${this.API}/projects/${this.projectId}`).subscribe({
+    this.projectService.delete(this.projectId).subscribe({
       next: () => this.router.navigate(['/projects']),
     });
   }

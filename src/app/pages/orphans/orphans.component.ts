@@ -1,8 +1,9 @@
 import { Component, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { LucideAngularModule } from 'lucide-angular';
+import { OrphanService } from '../../core/services/orphan.service';
+import { DonorService } from '../../core/services/donor.service';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -104,8 +105,6 @@ const VALID_AMOUNTS = [35, 70, 105, 140, 175, 210, 420];
   styleUrl: './orphans.component.css',
 })
 export class OrphansComponent implements OnInit {
-  private readonly API = '/api';
-
   // ── State ──
   tab            = signal<'orphelins' | 'attente'>('orphelins');
   orphans        = signal<Orphan[]>([]);
@@ -178,7 +177,7 @@ export class OrphansComponent implements OnInit {
   readonly statusOptions: OrphanStatus[] = ['ACTIF', 'SUSPENDU', 'EN_ATTENTE', 'TERMINE', 'ARCHIVE'];
   readonly paymentOptions: PaymentStatus[] = ['OK', 'LATE', 'MISSING', 'UNKNOWN'];
 
-  constructor(private http: HttpClient) {}
+  constructor(private orphanService: OrphanService, private donorService: DonorService) {}
 
   ngOnInit(): void { this.fetchAll(); }
 
@@ -191,9 +190,9 @@ export class OrphansComponent implements OnInit {
     if (this.filterStatus()) params['status']  = this.filterStatus();
 
     Promise.all([
-      this.http.get<any>(`${this.API}/orphans`, { params: { ...params, limit: 200 } }).toPromise(),
-      this.http.get<any>(`${this.API}/orphans/waitlist/list`, { params: { isAssigned: 'false' } }).toPromise(),
-      this.http.get<any>(`${this.API}/orphans/stats`).toPromise(),
+      this.orphanService.getAll({ ...params, limit: 200 }).toPromise(),
+      this.orphanService.getWaitlist({ isAssigned: 'false' }).toPromise(),
+      this.orphanService.getStats().toPromise(),
     ]).then(([orphRes, waitRes, statsRes]) => {
       // Robustly unwrap one or two levels of { data: { data: ... } }
       const unwrap = (r: any) => { const o = r?.data ?? r; return o?.data ?? o; };
@@ -217,7 +216,7 @@ export class OrphansComponent implements OnInit {
   }
 
   loadOhmeStatus(): void {
-    this.http.get<any>(`${this.API}/orphans/ohme/status`).subscribe({
+    this.orphanService.getOhmeStatus().subscribe({
       next: res => {
         const outer = res?.data ?? res;
         const list = outer?.data ?? outer ?? [];
@@ -233,7 +232,7 @@ export class OrphansComponent implements OnInit {
 
   syncOhme(): void {
     this.syncing.set(true);
-    this.http.post<any>(`${this.API}/orphans/ohme/sync-all`, {}).subscribe({
+    this.orphanService.syncOhme().subscribe({
       next: () => setTimeout(() => { this.fetchAll(); this.syncing.set(false); }, 3000),
       error: () => this.syncing.set(false),
     });
@@ -258,7 +257,7 @@ export class OrphansComponent implements OnInit {
 
   loadDetailFiles(id: string): void {
     this.detailFilesLoading.set(true);
-    this.http.get<any>(`${this.API}/orphans/${id}/files`).subscribe({
+    this.orphanService.getFiles(id).subscribe({
       next: res => { this.detailFiles.set(res?.data ?? { found: false, files: [] }); this.detailFilesLoading.set(false); },
       error: () => { this.detailFiles.set({ found: false, files: [] }); this.detailFilesLoading.set(false); },
     });
@@ -268,7 +267,7 @@ export class OrphansComponent implements OnInit {
     const o = this.selectedOrphan();
     if (!o) return;
     this.detailSaving.set(true);
-    this.http.put<any>(`${this.API}/orphans/${o.id}`, this.detailForm()).subscribe({
+    this.orphanService.update(o.id, this.detailForm()).subscribe({
       next: () => { this.detailSaving.set(false); this.detailEditing.set(false); this.fetchAll(); },
       error: () => this.detailSaving.set(false),
     });
@@ -283,7 +282,7 @@ export class OrphansComponent implements OnInit {
   confirmSuspend(): void {
     const o = this.suspendOrphan();
     if (!o) return;
-    this.http.post<any>(`${this.API}/orphans/${o.id}/suspend`, { reason: this.suspendReason() }).subscribe({
+    this.orphanService.suspend(o.id, this.suspendReason()).subscribe({
       next: () => { this.suspendOrphan.set(null); this.suspendReason.set(''); this.fetchAll(); },
       error: () => {},
     });
@@ -291,7 +290,7 @@ export class OrphansComponent implements OnInit {
 
   reactivate(o: Orphan): void {
     if (!confirm('Réactiver cet orphelin ?')) return;
-    this.http.post<any>(`${this.API}/orphans/${o.id}/reactivate`, {}).subscribe({
+    this.orphanService.reactivate(o.id).subscribe({
       next: () => this.fetchAll(),
       error: () => {},
     });
@@ -317,12 +316,12 @@ export class OrphansComponent implements OnInit {
   }
 
   private doAssign(orphanId: string, sponsorData: any, waitlistId: string | null): void {
-    this.http.post<any>(`${this.API}/donors`, sponsorData).subscribe({
+    this.donorService.create(sponsorData).subscribe({
       next: res => {
         const outer = res?.data ?? res;
         const inner = outer?.data ?? outer;
         const sponsorId = inner?.id ?? outer?.id;
-        this.http.post<any>(`${this.API}/orphans/${orphanId}/assign`, { sponsorId, waitlistId }).subscribe({
+        this.orphanService.assign(orphanId, sponsorId, waitlistId).subscribe({
           next: () => { this.assignOrphan.set(null); this.fetchAll(); },
           error: () => {},
         });
@@ -337,7 +336,7 @@ export class OrphansComponent implements OnInit {
     const f = this.newOrphanForm();
     if (!f.firstName) return;
     this.newOrphanSaving.set(true);
-    this.http.post<any>(`${this.API}/orphans`, f).subscribe({
+    this.orphanService.create(f).subscribe({
       next: () => { this.showNewOrphan.set(false); this.newOrphanSaving.set(false); this.fetchAll(); },
       error: () => this.newOrphanSaving.set(false),
     });
@@ -349,7 +348,7 @@ export class OrphansComponent implements OnInit {
     const f = this.newWaitlistForm();
     if (!f.fullName) return;
     this.newWaitlistSaving.set(true);
-    this.http.post<any>(`${this.API}/orphans/waitlist`, f).subscribe({
+    this.orphanService.createWaitlist(f).subscribe({
       next: () => { this.showNewWaitlist.set(false); this.newWaitlistSaving.set(false); this.fetchAll(); },
       error: () => this.newWaitlistSaving.set(false),
     });
@@ -358,7 +357,7 @@ export class OrphansComponent implements OnInit {
   // ── Waitlist inline edit ───────────────────────────────────────────────────
 
   saveWaitlistStatut(id: string): void {
-    this.http.put<any>(`${this.API}/orphans/waitlist/${id}`, { statut: this.editingStatut() }).subscribe({
+    this.orphanService.updateWaitlist(id, { statut: this.editingStatut() }).subscribe({
       next: () => { this.editingWaitlistId.set(null); this.fetchAll(); },
       error: () => {},
     });
@@ -366,7 +365,7 @@ export class OrphansComponent implements OnInit {
 
   deleteWaitlist(id: string): void {
     if (!confirm('Supprimer ce candidat ?')) return;
-    this.http.delete(`${this.API}/orphans/waitlist/${id}`).subscribe({
+    this.orphanService.deleteWaitlist(id).subscribe({
       next: () => this.fetchAll(),
       error: () => {},
     });

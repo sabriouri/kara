@@ -1,9 +1,11 @@
 import { Component, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
+import { InstalmentService } from '../../../core/services/instalment.service';
+import { VirementService } from '../../../core/services/virement.service';
+import { WellService } from '../../../core/services/well.service';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -101,8 +103,6 @@ interface WellBreakdown {
   styleUrl: './mensual-detail.component.css',
 })
 export class MensualDetailComponent implements OnInit {
-  private readonly API = '/api';
-
   wellId = '';
 
   financing     = signal<Financing | null>(null);
@@ -136,7 +136,9 @@ export class MensualDetailComponent implements OnInit {
   readonly TARGET = 370;
 
   constructor(
-    private http: HttpClient,
+    private instalmentService: InstalmentService,
+    private virementService: VirementService,
+    private wellService: WellService,
     private route: ActivatedRoute,
     private router: Router,
   ) {}
@@ -153,9 +155,8 @@ export class MensualDetailComponent implements OnInit {
     this.loading.set(true);
     this.error.set('');
 
-    this.http.get<any>(`${this.API}/instalments/financing/${this.wellId}`).subscribe({
+    this.instalmentService.getFinancingById(this.wellId).subscribe({
       next: r => {
-        // React: finRes.data.data → handle { data: { ... } } OR { data: { data: { ... } } }
         const outer = r?.data ?? r;
         const fin: Financing = outer?.data ?? outer;
         this.financing.set(fin);
@@ -171,9 +172,8 @@ export class MensualDetailComponent implements OnInit {
   }
 
   loadDonorPayments(contactId: string): void {
-    this.http.get<any>(`${this.API}/instalments/donor-payments/${contactId}`).subscribe({
+    this.instalmentService.getDonorPayments(contactId).subscribe({
       next: r => {
-        // React: pymRes.data.data || []
         const outer = r?.data ?? r;
         const payments: OhmePayment[] = (outer?.data ?? outer ?? []);
         const list = Array.isArray(payments) ? payments : [];
@@ -186,7 +186,7 @@ export class MensualDetailComponent implements OnInit {
   }
 
   loadPaymentSources(): void {
-    this.http.get<any>(`${this.API}/virements/payment-sources`).subscribe({
+    this.virementService.getPaymentSources().subscribe({
       next: r => {
         const outer = r?.data ?? r;
         const sources = outer?.data ?? outer;
@@ -198,9 +198,8 @@ export class MensualDetailComponent implements OnInit {
   }
 
   loadComments(): void {
-    this.http.get<any>(`${this.API}/wells/${this.wellId}/comments`).subscribe({
+    this.wellService.getComments(this.wellId).subscribe({
       next: r => {
-        // React: commRes.data?.data || []
         const outer = r?.data ?? r;
         const comments = outer?.data ?? outer ?? [];
         this.comments.set(Array.isArray(comments) ? comments : []);
@@ -279,7 +278,7 @@ export class MensualDetailComponent implements OnInit {
     const sel = this.selectedSources()[payment.id];
     if (!sel?.code) return;
     this.confirming.set(payment.id);
-    this.http.put<any>(`${this.API}/instalments/attribute-payment/${payment.id}`, {
+    this.instalmentService.attributePayment(payment.id, {
       campaignCode: sel.code,
       campaignName: sel.name,
       ohmeContactId: this.financing()?.ohmeContactId,
@@ -318,7 +317,7 @@ export class MensualDetailComponent implements OnInit {
       if (this.linkDate())   payload.paymentDate   = this.linkDate();
       if (this.linkAmount()) payload.paymentAmount = parseFloat(this.linkAmount());
     }
-    this.http.post<any>(`${this.API}/wells/${this.wellId}/comments`, payload).subscribe({
+    this.wellService.addComment(this.wellId, payload).subscribe({
       next: r => {
         this.comments.update(c => [r.data ?? r, ...c]);
         this.newComment.set('');
@@ -334,7 +333,7 @@ export class MensualDetailComponent implements OnInit {
 
   saveEdit(id: string): void {
     if (!this.editContent().trim()) return;
-    this.http.put<any>(`${this.API}/wells/${this.wellId}/comments/${id}`, { content: this.editContent().trim() }).subscribe({
+    this.wellService.updateComment(this.wellId, id, { content: this.editContent().trim() }).subscribe({
       next: r => {
         this.comments.update(list => list.map(c => c.id === id ? (r.data ?? r) : c));
         this.editingId.set(null);
@@ -344,7 +343,7 @@ export class MensualDetailComponent implements OnInit {
   }
 
   deleteComment(id: string): void {
-    this.http.delete(`${this.API}/wells/${this.wellId}/comments/${id}`).subscribe({
+    this.wellService.deleteComment(this.wellId, id).subscribe({
       next: () => this.comments.update(list => list.filter(c => c.id !== id)),
       error: () => {},
     });

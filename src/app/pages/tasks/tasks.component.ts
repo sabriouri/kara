@@ -1,7 +1,6 @@
 import { Component, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { LucideAngularModule } from 'lucide-angular';
 import {
   CdkDragDrop,
@@ -9,6 +8,7 @@ import {
   moveItemInArray,
   transferArrayItem,
 } from '@angular/cdk/drag-drop';
+import { TaskService } from '../../core/services/task.service';
 
 export interface Task {
   id: string;
@@ -37,8 +37,6 @@ interface CreateTaskPayload {
   styleUrl: './tasks.component.css',
 })
 export class TasksComponent implements OnInit {
-  private readonly API = '/api';
-
   tasks   = signal<Task[]>([]);
   loading = signal(true);
   saving  = signal(false);
@@ -81,7 +79,7 @@ export class TasksComponent implements OnInit {
     }, {} as Record<string, Task[]>);
   });
 
-  constructor(private http: HttpClient) {}
+  constructor(private taskService: TaskService) {}
 
   ngOnInit(): void {
     this.loadTasks();
@@ -93,7 +91,7 @@ export class TasksComponent implements OnInit {
     if (this.search()) params.search = this.search();
     if (this.priority()) params.priority = this.priority();
 
-    this.http.get<{ data: { tasks: Task[] } }>(`${this.API}/tasks`, { params }).subscribe({
+    this.taskService.getAll(params).subscribe({
       next: res => {
         this.tasks.set(res.data?.tasks ?? []);
         this.loading.set(false);
@@ -119,7 +117,7 @@ export class TasksComponent implements OnInit {
       this.tasks.update(all =>
         all.map(t => t.id === task.id ? { ...t, status: targetStatus as Task['status'] } : t)
       );
-      this.http.put(`${this.API}/tasks/${task.id}`, { status: targetStatus }).subscribe({
+      this.taskService.update(task.id, { status: targetStatus }).subscribe({
         error: () => this.loadTasks(),
       });
     }
@@ -137,7 +135,7 @@ export class TasksComponent implements OnInit {
   createTask(): void {
     if (!this.newTask.title.trim()) return;
     this.saving.set(true);
-    this.http.post<{ data: { task: Task } }>(`${this.API}/tasks`, this.newTask).subscribe({
+    this.taskService.create(this.newTask).subscribe({
       next: res => {
         if (res.data?.task) {
           this.tasks.update(list => [...list, res.data.task]);
@@ -157,7 +155,7 @@ export class TasksComponent implements OnInit {
     this.tasks.update(all =>
       all.map(t => t.id === task.id ? { ...t, status: status as Task['status'] } : t)
     );
-    this.http.put(`${this.API}/tasks/${task.id}`, { status }).subscribe({
+    this.taskService.update(task.id, { status }).subscribe({
       error: () => this.loadTasks(),
     });
   }

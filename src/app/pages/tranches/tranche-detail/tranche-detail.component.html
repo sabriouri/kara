@@ -1,22 +1,25 @@
 @if (loading()) {
-  <div class="td-loading">
-    <div class="spinner"></div>
+  <div class="td-state">
+    <lucide-icon name="loader-2" [size]="28" class="td-spin" style="color:#1aabe2"></lucide-icon>
     <span>Chargement…</span>
   </div>
 } @else if (error()) {
-  <div class="td-error">
+  <div class="td-state td-state--error">
     <lucide-icon name="triangle-alert" [size]="36" [strokeWidth]="1.5"></lucide-icon>
     <p>{{ error() }}</p>
-    <a routerLink="/wells/tranches" class="btn-secondary">Retour aux tranches</a>
+    <a routerLink="/wells/tranches" class="td-btn td-btn-ghost">
+      <lucide-icon name="arrow-left" [size]="14"></lucide-icon>
+      Retour aux tranches
+    </a>
   </div>
 } @else if (tranche()) {
 
 <div class="td-root">
 
-  <!-- Top bar -->
+  <!-- ── Top bar ──────────────────────────────────────────────────── -->
   <div class="td-topbar">
     <a routerLink="/wells/tranches" class="td-back">
-      <lucide-icon name="arrow-left" [size]="16"></lucide-icon>
+      <lucide-icon name="arrow-left" [size]="15"></lucide-icon>
       Retour aux tranches
     </a>
     <div class="td-topbar-right">
@@ -24,174 +27,304 @@
         <span class="td-save-msg" [class.error]="saveMsg() === 'Erreur'">{{ saveMsg() }}</span>
       }
       @if (!editMode()) {
-        <button class="btn-secondary" (click)="startEdit()">
+        <button class="td-btn td-btn-ghost" (click)="startEdit()">
           <lucide-icon name="pencil" [size]="14"></lucide-icon>
           Modifier
         </button>
       } @else {
-        <button class="btn-secondary" (click)="cancelEdit()">Annuler</button>
-        <button class="btn-primary" (click)="saveEdit()" [disabled]="saving()">
-          @if (saving()) { <div class="btn-spinner"></div> }
+        <button class="td-btn td-btn-ghost" (click)="cancelEdit()">Annuler</button>
+        <button class="td-btn td-btn-primary" (click)="saveEdit()" [disabled]="saving()">
+          @if (saving()) {
+            <lucide-icon name="loader-2" [size]="14" class="td-spin"></lucide-icon>
+          }
           Enregistrer
         </button>
       }
     </div>
   </div>
 
-  <!-- Hero -->
+  <!-- ── Hero card ────────────────────────────────────────────────── -->
   <div class="td-hero" [style.border-left-color]="getStatusInfo(tranche()!.status).color">
+
     <div class="td-hero-left">
       <code class="td-reference">{{ tranche()!.reference }}</code>
-      <h1 class="td-name">{{ tranche()!.name || tranche()!.reference }}</h1>
-      @if (tranche()!.country) {
-        <div class="td-country">
-          <lucide-icon name="map-pin" [size]="13"></lucide-icon>
-          {{ tranche()!.country }}
+
+      <div class="td-hero-location">
+        <lucide-icon name="globe" [size]="13"></lucide-icon>
+        <span>{{ tranche()!.country }}{{ tranche()!.region ? ' – ' + tranche()!.region : '' }}</span>
+      </div>
+
+      @if (tranche()!.provider) {
+        <div class="td-hero-provider">
+          <lucide-icon name="building-2" [size]="13"></lucide-icon>
+          <span class="td-provider-chip">{{ tranche()!.provider }}</span>
         </div>
       }
+
       <div class="td-status-badge"
         [style.background]="getStatusInfo(tranche()!.status).bg"
         [style.color]="getStatusInfo(tranche()!.status).color">
+        <lucide-icon [name]="getStatusInfo(tranche()!.status).icon" [size]="12"></lucide-icon>
         {{ getStatusInfo(tranche()!.status).label }}
       </div>
     </div>
+
     <div class="td-hero-right">
-      @if (tranche()!.amount) {
-        <div class="td-amount">{{ fmt(tranche()!.amount!) }}</div>
-        <div class="td-amount-label">Montant de la tranche</div>
-      }
-      @if (tranche()!.wells?.length) {
-        <div class="td-wells-count">
-          <lucide-icon name="droplets" [size]="16"></lucide-icon>
-          {{ tranche()!.wells!.length }} puits associés
-        </div>
-      }
+      <div class="td-total-amount">{{ fmtAmount(tranche()!.totalAmount) }}</div>
+      <div class="td-total-label">Montant total de la tranche</div>
+      <div class="td-wells-chip">
+        <lucide-icon name="droplets" [size]="14"></lucide-icon>
+        {{ tranche()!.wells?.length ?? tranche()!.wellCount ?? 0 }} puits associés
+      </div>
     </div>
+
   </div>
 
   @if (!editMode()) {
 
-    <!-- Stats summary -->
-    @if (tranche()!.wells?.length) {
+    <!-- ── Stats row ────────────────────────────────────────────── -->
+    @if ((tranche()!.wells?.length ?? 0) > 0) {
       <div class="td-stats">
         <div class="td-stat">
-          <span class="td-stat-value">{{ fmt(totalCollected()) }}</span>
-          <span class="td-stat-label">Collecté</span>
+          <lucide-icon name="coins" [size]="18" style="color:#10b981"></lucide-icon>
+          <div>
+            <span class="td-stat-value">{{ fmtAmount(totalCollected()) }}</span>
+            <span class="td-stat-label">Collecté</span>
+          </div>
         </div>
         <div class="td-stat">
-          <span class="td-stat-value">{{ fmt(totalTarget()) }}</span>
-          <span class="td-stat-label">Objectif total</span>
+          <lucide-icon name="target" [size]="18" style="color:#3b82f6"></lucide-icon>
+          <div>
+            <span class="td-stat-value">{{ fmtAmount(totalTarget()) }}</span>
+            <span class="td-stat-label">Objectif total</span>
+          </div>
         </div>
         <div class="td-stat">
-          <span class="td-stat-value">{{ totalTarget() > 0 ? (totalCollected() / totalTarget() * 100 | number:'1.0-0') : 0 }}%</span>
-          <span class="td-stat-label">Progression</span>
+          <lucide-icon name="trending-up" [size]="18" style="color:#6366f1"></lucide-icon>
+          <div>
+            <span class="td-stat-value">
+              {{ totalTarget() > 0 ? (totalCollected() / totalTarget() * 100 | number:'1.0-0') : 0 }}%
+            </span>
+            <span class="td-stat-label">Progression</span>
+          </div>
         </div>
       </div>
     }
 
-    <!-- Info cards -->
+    <!-- ── Info grid ─────────────────────────────────────────────── -->
     <div class="td-info-grid">
-      <div class="td-info-card">
-        <h3 class="td-info-title">Détails</h3>
+
+      <!-- Informations générales -->
+      <div class="td-card">
+        <h3 class="td-card-title">
+          <lucide-icon name="info" [size]="14"></lucide-icon>
+          Informations
+        </h3>
         <div class="td-field-list">
           <div class="td-field">
-            <span class="td-field-label">Référence</span>
-            <span class="td-field-value"><code>{{ tranche()!.reference }}</code></span>
+            <span class="td-field-lbl">Référence</span>
+            <code class="td-field-code">{{ tranche()!.reference }}</code>
           </div>
           <div class="td-field">
-            <span class="td-field-label">Nom</span>
-            <span class="td-field-value">{{ tranche()!.name || '–' }}</span>
+            <span class="td-field-lbl">Pays</span>
+            <span class="td-field-val">
+              <lucide-icon name="globe" [size]="12"></lucide-icon>
+              {{ tranche()!.country || '–' }}
+            </span>
           </div>
+          @if (tranche()!.region) {
+            <div class="td-field">
+              <span class="td-field-lbl">Région</span>
+              <span class="td-field-val">{{ tranche()!.region }}</span>
+            </div>
+          }
           <div class="td-field">
-            <span class="td-field-label">Pays</span>
-            <span class="td-field-value">{{ tranche()!.country || '–' }}</span>
+            <span class="td-field-lbl">Montant total</span>
+            <span class="td-field-val td-field-val--amount">{{ fmtAmount(tranche()!.totalAmount) }}</span>
           </div>
+          @if (tranche()!.provider) {
+            <div class="td-field">
+              <span class="td-field-lbl">Plateforme</span>
+              <span class="td-provider-chip">{{ tranche()!.provider }}</span>
+            </div>
+          }
           <div class="td-field">
-            <span class="td-field-label">Montant</span>
-            <span class="td-field-value">{{ tranche()!.amount ? fmt(tranche()!.amount!) : '–' }}</span>
+            <span class="td-field-lbl">Statut</span>
+            <span class="td-status-sm"
+              [style.background]="getStatusInfo(tranche()!.status).bg"
+              [style.color]="getStatusInfo(tranche()!.status).color">
+              {{ getStatusInfo(tranche()!.status).label }}
+            </span>
           </div>
+          @if (tranche()!.createdBy) {
+            <div class="td-field">
+              <span class="td-field-lbl">Créée par</span>
+              <span class="td-field-val">
+                {{ tranche()!.createdBy!.firstName }} {{ tranche()!.createdBy!.lastName }}
+              </span>
+            </div>
+          }
           <div class="td-field">
-            <span class="td-field-label">Créée le</span>
-            <span class="td-field-value">{{ fmtDate(tranche()!.createdAt) }}</span>
+            <span class="td-field-lbl">Créée le</span>
+            <span class="td-field-val">{{ fmtDate(tranche()!.createdAt) }}</span>
           </div>
         </div>
       </div>
 
-      @if (tranche()!.description) {
-        <div class="td-info-card">
-          <h3 class="td-info-title">Description</h3>
-          <p class="td-description">{{ tranche()!.description }}</p>
+      <!-- Dates clés -->
+      <div class="td-card">
+        <h3 class="td-card-title">
+          <lucide-icon name="calendar-days" [size]="14"></lucide-icon>
+          Dates clés
+        </h3>
+        <div class="td-dates-list">
+          <div class="td-date-row">
+            <div class="td-date-icon" style="background:#eff6ff; color:#3b82f6">
+              <lucide-icon name="calendar" [size]="14"></lucide-icon>
+            </div>
+            <div class="td-date-info">
+              <span class="td-date-label">Début des travaux</span>
+              <span class="td-date-value">{{ fmtDate(tranche()!.startedDate) }}</span>
+            </div>
+          </div>
+          <div class="td-date-row">
+            <div class="td-date-icon" style="background:#f0fdf4; color:#10b981">
+              <lucide-icon name="flag" [size]="14"></lucide-icon>
+            </div>
+            <div class="td-date-info">
+              <span class="td-date-label">Inauguration</span>
+              <span class="td-date-value">{{ fmtDate(tranche()!.inauguratedDate) }}</span>
+            </div>
+          </div>
+          <div class="td-date-row">
+            <div class="td-date-icon" style="background:#f5f3ff; color:#6366f1">
+              <lucide-icon name="file-check" [size]="14"></lucide-icon>
+            </div>
+            <div class="td-date-info">
+              <span class="td-date-label">Livraison</span>
+              <span class="td-date-value">{{ fmtDate(tranche()!.deliveredDate) }}</span>
+            </div>
+          </div>
         </div>
-      }
+
+        @if (tranche()!.notes) {
+          <div class="td-notes">
+            <div class="td-notes-label">
+              <lucide-icon name="sticky-note" [size]="12"></lucide-icon>
+              Notes
+            </div>
+            <p class="td-notes-text">{{ tranche()!.notes }}</p>
+          </div>
+        }
+      </div>
+
     </div>
 
-    <!-- Wells list -->
-    @if (tranche()!.wells?.length) {
-      <div class="td-wells-section">
-        <h2 class="td-section-title">
-          <lucide-icon name="droplets" [size]="16"></lucide-icon>
-          Puits associés ({{ tranche()!.wells!.length }})
-        </h2>
+    <!-- ── Wells section ─────────────────────────────────────────── -->
+    <div class="td-wells-section">
+      <h2 class="td-section-title">
+        <lucide-icon name="droplets" [size]="16"></lucide-icon>
+        Puits associés
+        @if (tranche()!.wells?.length) {
+          <span class="td-section-badge">{{ tranche()!.wells!.length }}</span>
+        }
+      </h2>
+
+      @if ((tranche()!.wells?.length ?? 0) === 0) {
+        <div class="td-no-wells">
+          <lucide-icon name="droplets" [size]="38" [strokeWidth]="1.2"></lucide-icon>
+          <p>Aucun puits associé à cette tranche.</p>
+        </div>
+      } @else {
         <div class="td-wells-grid">
           @for (w of tranche()!.wells!; track w.id) {
             <a class="td-well-card" [routerLink]="['/wells', w.id]">
-              <div class="td-well-code">
-                <lucide-icon name="droplet" [size]="13"></lucide-icon>
-                {{ w.code }}
-              </div>
-              @if (w.country) {
-                <div class="td-well-country">{{ w.country }}</div>
-              }
-              <div class="td-well-status">
+
+              <div class="td-well-head">
+                <div class="td-well-code">
+                  <lucide-icon name="droplet" [size]="13" style="color:#3b82f6"></lucide-icon>
+                  {{ w.code }}
+                </div>
                 <span class="td-well-badge"
                   [style.background]="getProjectStatusColor(w.projectStatus) + '22'"
                   [style.color]="getProjectStatusColor(w.projectStatus)">
                   {{ w.projectStatus.replace('_', ' ') }}
                 </span>
               </div>
+
+              @if (w.country) {
+                <div class="td-well-country">
+                  <lucide-icon name="map-pin" [size]="11"></lucide-icon>
+                  {{ w.country }}
+                </div>
+              }
+
+              @if (w.donorEmail) {
+                <div class="td-well-donor">
+                  <lucide-icon name="user" [size]="11"></lucide-icon>
+                  {{ w.donorEmail }}
+                </div>
+              }
+
+              <!-- Progress bar -->
               <div class="td-well-progress-track">
                 <div class="td-well-progress-fill"
                   [style.width.%]="wellProgress(w)"
                   [style.background]="getProjectStatusColor(w.projectStatus)">
                 </div>
               </div>
+
               <div class="td-well-amounts">
-                <span>{{ fmt(w.paidAmount) }} / {{ fmt(w.targetAmount) }}</span>
+                <span>{{ fmtAmount(w.paidAmount) }} / {{ fmtAmount(w.targetAmount) }}</span>
                 <span class="td-well-pct">{{ wellProgress(w) }}%</span>
               </div>
+
             </a>
           }
         </div>
-      </div>
-    } @else {
-      <div class="td-no-wells">
-        <lucide-icon name="droplets" [size]="40" [strokeWidth]="1.2"></lucide-icon>
-        <p>Aucun puits associé à cette tranche.</p>
-      </div>
-    }
+      }
+    </div>
 
   } @else {
-    <!-- Edit form -->
+
+    <!-- ── Edit form ──────────────────────────────────────────────── -->
     <div class="td-edit-form">
-      <div class="form-section">
-        <h3 class="form-section-title">Informations</h3>
+
+      <div class="td-card">
+        <h3 class="td-card-title">
+          <lucide-icon name="pencil" [size]="14"></lucide-icon>
+          Modifier la tranche
+        </h3>
         <div class="form-grid">
-          <div class="form-group">
-            <label class="form-label">Référence</label>
-            <input class="form-input" type="text" [value]="editForm().reference || ''" (input)="setEditField('reference', $any($event.target).value)" />
-          </div>
-          <div class="form-group">
-            <label class="form-label">Nom</label>
-            <input class="form-input" type="text" [value]="editForm().name || ''" (input)="setEditField('name', $any($event.target).value)" />
-          </div>
+
           <div class="form-group">
             <label class="form-label">Pays</label>
-            <input class="form-input" type="text" [value]="editForm().country || ''" (input)="setEditField('country', $any($event.target).value)" />
+            <input class="form-input" type="text"
+              [value]="editForm().country || ''"
+              (input)="setEditField('country', $any($event.target).value)" />
           </div>
+
           <div class="form-group">
-            <label class="form-label">Montant (€)</label>
-            <input class="form-input" type="number" [value]="editForm().amount || ''" (input)="setEditField('amount', +$any($event.target).value)" />
+            <label class="form-label">Région</label>
+            <input class="form-input" type="text"
+              [value]="editForm().region || ''"
+              (input)="setEditField('region', $any($event.target).value)" />
           </div>
+
+          <div class="form-group">
+            <label class="form-label">Montant total (€)</label>
+            <input class="form-input" type="number"
+              [value]="editForm().totalAmount || ''"
+              (input)="setEditField('totalAmount', +$any($event.target).value)" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Plateforme / Source</label>
+            <input class="form-input" type="text"
+              [value]="editForm().provider || ''"
+              (input)="setEditField('provider', $any($event.target).value)" />
+          </div>
+
           <div class="form-group">
             <label class="form-label">Statut</label>
             <select class="form-input" [value]="editForm().status" (change)="setEditField('status', $any($event.target).value)">
@@ -200,13 +333,40 @@
               }
             </select>
           </div>
-          <div class="form-group form-full">
-            <label class="form-label">Description</label>
-            <textarea class="form-input form-textarea" rows="3" [value]="editForm().description || ''" (input)="setEditField('description', $any($event.target).value)"></textarea>
+
+          <div class="form-group">
+            <label class="form-label">Début des travaux</label>
+            <input class="form-input" type="date"
+              [value]="editForm().startedDate?.slice(0,10) || ''"
+              (input)="setEditField('startedDate', $any($event.target).value)" />
           </div>
+
+          <div class="form-group">
+            <label class="form-label">Date d'inauguration</label>
+            <input class="form-input" type="date"
+              [value]="editForm().inauguratedDate?.slice(0,10) || ''"
+              (input)="setEditField('inauguratedDate', $any($event.target).value)" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Date de livraison</label>
+            <input class="form-input" type="date"
+              [value]="editForm().deliveredDate?.slice(0,10) || ''"
+              (input)="setEditField('deliveredDate', $any($event.target).value)" />
+          </div>
+
+          <div class="form-group form-full">
+            <label class="form-label">Notes</label>
+            <textarea class="form-input form-textarea" rows="3"
+              [value]="editForm().notes || ''"
+              (input)="setEditField('notes', $any($event.target).value)"></textarea>
+          </div>
+
         </div>
       </div>
+
     </div>
+
   }
 
 </div>

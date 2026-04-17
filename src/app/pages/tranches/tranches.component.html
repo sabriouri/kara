@@ -1,130 +1,455 @@
-<div class="page-content">
+<div class="tr-root">
 
-  <!-- En-tête -->
-  <div class="page-header">
-    <div>
-      <h1 class="page-title">Tranches de financement</h1>
-      <p class="text-muted">{{ tranches().length }} tranches au total</p>
+  <!-- ── Header ──────────────────────────────────────────────────── -->
+  <div class="tr-header">
+    <div class="tr-header-left">
+      <h1 class="tr-title">Tranches de financement</h1>
+      <p class="tr-subtitle">{{ tranches().length }} tranche{{ tranches().length !== 1 ? 's' : '' }} au total</p>
     </div>
-    <select [value]="country()" (change)="country.set($any($event.target).value); load()" class="filter-select">
-      <option value="">Tous les pays</option>
-      @for (c of countries; track c) {
-        @if (c) { <option [value]="c">{{ c }}</option> }
-      }
-    </select>
+    <div class="tr-header-actions">
+      <select class="tr-select" [value]="filterCountry()" (change)="filterCountry.set($any($event.target).value); load()">
+        <option value="">Tous les pays</option>
+        @for (c of countries; track c) {
+          <option [value]="c">{{ c }}</option>
+        }
+      </select>
+      <button class="tr-btn tr-btn-panel" [class.active]="showFreePanel()" (click)="toggleFreePanel()">
+        <lucide-icon name="droplets" [size]="15"></lucide-icon>
+        Puits libres
+        @if (freeWells().length > 0) {
+          <span class="tr-badge">{{ freeWells().length }}</span>
+        }
+      </button>
+      <button class="tr-btn tr-btn-primary" (click)="openCreateModal()">
+        <lucide-icon name="plus" [size]="15"></lucide-icon>
+        Nouvelle tranche
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Stats bar ────────────────────────────────────────────────── -->
+  <div class="tr-stats">
+    @for (s of statuses; track s.id) {
+      <div class="tr-stat-item">
+        <span class="tr-stat-dot" [style.background]="s.color"></span>
+        <span class="tr-stat-label">{{ s.label }}</span>
+        <span class="tr-stat-count" [style.color]="s.color">{{ byStatus(s.id).length }}</span>
+      </div>
+    }
   </div>
 
   @if (loading()) {
-    <div class="loading-wrapper"><div class="spinner"></div></div>
+    <div class="tr-loading">
+      <lucide-icon name="loader-2" [size]="20" class="tr-spin"></lucide-icon>
+      Chargement…
+    </div>
   } @else {
 
-    <!-- Kanban board -->
-    <div class="kanban" cdkDropListGroup>
-      @for (col of columns; track col.key) {
+    <!-- ── Main layout ─────────────────────────────────────────────── -->
+    <div class="tr-layout" [class.with-panel]="showFreePanel()">
 
-        <div class="kanban-col">
+      <!-- ── Kanban board ───────────────────────────────────────────── -->
+      <div class="tr-board" cdkDropListGroup>
+        @for (s of statuses; track s.id) {
+          <div class="tr-col">
 
-          <!-- Header colonne -->
-          <div class="col-header" [style.border-color]="col.color">
-            <span class="col-dot" [style.background]="col.color"></span>
-            <span class="col-label">{{ col.label }}</span>
-            <span class="col-count" [style.background]="col.bg" [style.color]="col.color">
-              {{ byStatus(col.key).length }}
-            </span>
-          </div>
+            <!-- Column header -->
+            <div class="tr-col-header" [style.border-top-color]="s.color">
+              <lucide-icon [name]="s.icon" [size]="14" [style.color]="s.color"></lucide-icon>
+              <span class="tr-col-label">{{ s.label }}</span>
+              <span class="tr-col-count" [style.background]="s.color + '22'" [style.color]="s.color">
+                {{ byStatus(s.id).length }}
+              </span>
+            </div>
 
-          <!-- Zone de drop -->
-          <div
-            class="col-cards"
-            cdkDropList
-            [id]="'drop-' + col.key"
-            [cdkDropListData]="columnData()[col.key]"
-            [cdkDropListConnectedTo]="dropListIds"
-            (cdkDropListDropped)="onDrop($event, col.key)"
-          >
-            @if (byStatus(col.key).length === 0) {
-              <div class="col-empty">Déposez une carte ici</div>
-            }
-
-            @for (t of byStatus(col.key); track t.id) {
-              <div class="tranche-card" cdkDrag [cdkDragData]="t">
-
-                <!-- Placeholder pendant le drag -->
-                <div *cdkDragPlaceholder class="drag-placeholder"></div>
-
-                <div class="tc-top">
-                  <code class="ref">{{ t.reference }}</code>
-                  <span class="tc-amount">{{ t.amount | currency:'EUR':'symbol':'1.0-0' }}</span>
+            <!-- Drop zone -->
+            <div
+              class="tr-col-body"
+              cdkDropList
+              [id]="'col-' + s.id"
+              [cdkDropListData]="columnData()[s.id] ?? []"
+              [cdkDropListConnectedTo]="dropListIds"
+              (cdkDropListDropped)="onDrop($event, s.id)"
+            >
+              @if (byStatus(s.id).length === 0) {
+                <div class="tr-col-empty">
+                  <lucide-icon name="inbox" [size]="26" class="tr-empty-icon"></lucide-icon>
+                  <span>Aucune tranche</span>
                 </div>
+              }
 
-                <p class="tc-name">{{ t.name }}</p>
+              @for (t of byStatus(s.id); track t.id) {
+                <div class="tr-card" cdkDrag [cdkDragData]="t" (click)="navigate('/tranches/' + t.id)">
+                  <div *cdkDragPlaceholder class="tr-drag-placeholder"></div>
 
-                <div class="tc-meta">
-                  <span class="tc-country">{{ t.country }}</span>
-                  @if (t.wellId) {
-                    <span class="tc-linked">Puits lié</span>
-                  }
-                </div>
+                  <!-- Top row: reference + amount -->
+                  <div class="tr-card-top">
+                    <code class="tr-ref">{{ t.reference }}</code>
+                    <span class="tr-amount">{{ fmtAmount(t.totalAmount) }}</span>
+                  </div>
 
-                <!-- Tags + bouton ajout -->
-                <div class="tc-tags-row">
-                  @for (tag of t.tags ?? []; track tag.label) {
-                    <span class="tag-chip"
-                      [style.background]="tag.color + '22'"
-                      [style.color]="tag.color">
-                      {{ tag.label }}
-                      <button class="tag-remove" (click)="removeTag(t, tag.label)" title="Supprimer">×</button>
-                    </span>
-                  }
+                  <!-- Wells count -->
+                  <div class="tr-card-wells">
+                    <lucide-icon name="droplets" [size]="12"></lucide-icon>
+                    <span>{{ t.wellCount ?? 0 }} puits</span>
+                  </div>
 
-                  <!-- Bouton + -->
-                  <div class="tag-add-wrap">
-                    <button class="tag-add-btn" (click)="togglePicker(t.id); $event.stopPropagation()" title="Ajouter un tag">+</button>
-
-                    @if (isPickerOpen(t.id)) {
-                      <div class="tag-popover" (click)="$event.stopPropagation()">
-                        <input
-                          class="tag-popover-input"
-                          type="text"
-                          placeholder="Nom du tag…"
-                          [value]="getTagInput(t.id)"
-                          (input)="setTagInput(t.id, $any($event.target).value)"
-                          (keydown.enter)="addTag(t)"
-                          autofocus
-                        />
-                        <div class="color-swatches">
-                          @for (c of tagPalette; track c) {
-                            <button
-                              class="color-dot"
-                              [style.background]="c"
-                              [class.selected]="getSelectedColor(t.id) === c"
-                              (click)="setSelectedColor(t.id, c)"
-                            ></button>
-                          }
-                        </div>
-                        <button class="tag-confirm-btn" (click)="addTag(t)">Ajouter</button>
+                  <!-- Location + provider -->
+                  <div class="tr-card-meta">
+                    <div class="tr-card-meta-item">
+                      <lucide-icon name="globe" [size]="12"></lucide-icon>
+                      <span>{{ t.country }}{{ t.region ? ' – ' + t.region : '' }}</span>
+                    </div>
+                    @if (t.provider) {
+                      <div class="tr-card-meta-item">
+                        <lucide-icon name="building-2" [size]="12"></lucide-icon>
+                        <span class="tr-provider-badge">{{ t.provider }}</span>
                       </div>
                     }
                   </div>
-                </div>
 
-                <div class="tc-actions">
-                  <a [routerLink]="['/tranches', t.id]" class="btn btn-secondary btn-sm">Détail</a>
-                  @if (nextStatus(t.status); as ns) {
-                    <button class="btn-advance" (click)="updateStatus(t, ns)">
-                      {{ nextLabel(t.status) }} →
-                    </button>
+                  <!-- Dates -->
+                  @if (t.startedDate || t.inauguratedDate || t.deliveredDate) {
+                    <div class="tr-card-dates">
+                      @if (t.startedDate) {
+                        <div class="tr-date-item">
+                          <lucide-icon name="calendar" [size]="11"></lucide-icon>
+                          <span>{{ fmt(t.startedDate) }}</span>
+                        </div>
+                      }
+                      @if (t.inauguratedDate) {
+                        <div class="tr-date-item tr-date-green">
+                          <lucide-icon name="flag" [size]="11"></lucide-icon>
+                          <span>{{ fmt(t.inauguratedDate) }}</span>
+                        </div>
+                      }
+                      @if (t.deliveredDate) {
+                        <div class="tr-date-item tr-date-purple">
+                          <lucide-icon name="file-check" [size]="11"></lucide-icon>
+                          <span>{{ fmt(t.deliveredDate) }}</span>
+                        </div>
+                      }
+                    </div>
                   }
-                </div>
 
-              </div>
+                  <!-- Footer: created by -->
+                  @if (t.createdBy) {
+                    <div class="tr-card-footer">
+                      <div class="tr-card-avatar">
+                        {{ t.createdBy.firstName.charAt(0) }}{{ t.createdBy.lastName.charAt(0) }}
+                      </div>
+                      <span class="tr-card-creator">{{ t.createdBy.firstName }} {{ t.createdBy.lastName }}</span>
+                    </div>
+                  }
+
+                </div>
+              }
+            </div>
+
+          </div>
+        }
+      </div>
+
+      <!-- ── Free wells panel ──────────────────────────────────────── -->
+      @if (showFreePanel()) {
+        <aside class="tr-panel">
+
+          <div class="tr-panel-head">
+            <div class="tr-panel-title">
+              <lucide-icon name="droplets" [size]="16" style="color:#38bdf8"></lucide-icon>
+              <span>Puits libres</span>
+              @if (freeWells().length > 0) {
+                <span class="tr-panel-badge">{{ freeWells().length }}</span>
+              }
+            </div>
+            <button class="tr-panel-close" (click)="toggleFreePanel()" title="Fermer">
+              <lucide-icon name="x" [size]="15"></lucide-icon>
+            </button>
+          </div>
+
+          <!-- Country tabs -->
+          <div class="tr-panel-tabs">
+            @for (c of countries; track c) {
+              <button
+                class="tr-panel-tab"
+                [class.active]="freeCountry() === c"
+                (click)="onFreeCountryChange(c)"
+              >{{ c }}</button>
             }
           </div>
 
-        </div>
-      }
-    </div>
+          <!-- Search -->
+          <div class="tr-panel-search">
+            <lucide-icon name="search" [size]="13" class="tr-panel-search-icon"></lucide-icon>
+            <input
+              type="text"
+              class="tr-panel-search-input"
+              placeholder="Rechercher…"
+              [value]="freeSearch()"
+              (input)="freeSearch.set($any($event.target).value)"
+            />
+          </div>
 
+          <!-- Selection actions -->
+          @if (freeSelected().size > 0) {
+            <div class="tr-panel-actions">
+              <span class="tr-sel-count">{{ freeSelected().size }} sélectionné(s)</span>
+              <button class="tr-assign-btn" (click)="showAssignModal.set(true)">
+                <lucide-icon name="link" [size]="13"></lucide-icon>
+                Assigner
+              </button>
+            </div>
+          }
+
+          <!-- Select all -->
+          @if (filteredFreeWells().length > 0) {
+            <div class="tr-panel-list-head">
+              <label class="tr-check-wrap">
+                <input type="checkbox" [checked]="allFreeSelected()" (change)="toggleAllFreeWells()" />
+                <span class="tr-check-label">Tout sélectionner</span>
+              </label>
+            </div>
+          }
+
+          <!-- Wells list -->
+          <div class="tr-panel-list">
+            @if (freeLoading()) {
+              <div class="tr-panel-loading">
+                <lucide-icon name="loader-2" [size]="18" class="tr-spin"></lucide-icon>
+              </div>
+            } @else if (filteredFreeWells().length === 0) {
+              <div class="tr-panel-empty">
+                <lucide-icon name="inbox" [size]="24"></lucide-icon>
+                <span>Aucun puits libre</span>
+              </div>
+            } @else {
+              @for (w of filteredFreeWells(); track w.id) {
+                <label class="tr-well-row" [class.selected]="freeSelected().has(w.id)">
+                  <input type="checkbox" [checked]="freeSelected().has(w.id)" (change)="toggleFreeWell(w.id)" />
+                  <div class="tr-well-info">
+                    <span class="tr-well-code">{{ w.code }}</span>
+                    @if (w.plaque) {
+                      <span class="tr-well-plaque">{{ w.plaque }}</span>
+                    }
+                    @if (w.donorEmail) {
+                      <span class="tr-well-donor">{{ w.donorEmail }}</span>
+                    }
+                  </div>
+                  @if (w.paidAmount) {
+                    <span class="tr-well-amount">{{ fmtAmount(w.paidAmount) }}</span>
+                  }
+                </label>
+              }
+            }
+          </div>
+
+        </aside>
+      }
+
+    </div><!-- /tr-layout -->
+
+  }
+
+  <!-- ── Assign modal ─────────────────────────────────────────────── -->
+  @if (showAssignModal()) {
+    <div class="tr-overlay" (click)="showAssignModal.set(false)">
+      <div class="tr-modal" (click)="$event.stopPropagation()">
+        <div class="tr-modal-head">
+          <h3 class="tr-modal-title">Assigner {{ freeSelected().size }} puits</h3>
+          <button class="tr-modal-close" (click)="showAssignModal.set(false)">
+            <lucide-icon name="x" [size]="17"></lucide-icon>
+          </button>
+        </div>
+        <div class="tr-modal-body">
+          <div class="tr-form-group">
+            <label class="tr-field-label">Tranche cible</label>
+            <select class="tr-field-select" [value]="assignTargetId()" (change)="assignTargetId.set($any($event.target).value)">
+              <option value="">— Choisir une tranche —</option>
+              @for (t of tranchesForFreeCountry(); track t.id) {
+                <option [value]="t.id">{{ t.reference }} – {{ t.country }}</option>
+              }
+            </select>
+          </div>
+        </div>
+        <div class="tr-modal-foot">
+          <button class="tr-btn tr-btn-ghost" (click)="showAssignModal.set(false)">Annuler</button>
+          <button
+            class="tr-btn tr-btn-primary"
+            [disabled]="!assignTargetId() || assignLoading()"
+            (click)="assignWells()"
+          >
+            @if (assignLoading()) {
+              <lucide-icon name="loader-2" [size]="14" class="tr-spin"></lucide-icon>
+            }
+            Assigner
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- ── Create tranche modal ─────────────────────────────────────── -->
+  @if (showCreateModal()) {
+    <div class="tr-overlay" (click)="showCreateModal.set(false)">
+      <div class="tr-modal tr-modal-lg" (click)="$event.stopPropagation()">
+        <div class="tr-modal-head">
+          <h3 class="tr-modal-title">Nouvelle tranche</h3>
+          <button class="tr-modal-close" (click)="showCreateModal.set(false)">
+            <lucide-icon name="x" [size]="17"></lucide-icon>
+          </button>
+        </div>
+
+        <div class="tr-modal-body tr-modal-body--create">
+
+          <!-- Country + Region -->
+          <div class="tr-form-row">
+            <div class="tr-form-group">
+              <label class="tr-field-label">Pays <span class="req">*</span></label>
+              <select class="tr-field-select" [value]="createCountry()" (change)="onCreateCountryChange($any($event.target).value)">
+                <option value="">— Sélectionner —</option>
+                @for (c of countries; track c) {
+                  <option [value]="c">{{ c }}</option>
+                }
+              </select>
+            </div>
+            <div class="tr-form-group">
+              <label class="tr-field-label">Région</label>
+              <input
+                type="text"
+                class="tr-field-input"
+                placeholder="Ex : Kampong Speu"
+                [value]="createRegion()"
+                (input)="createRegion.set($any($event.target).value)"
+              />
+            </div>
+          </div>
+
+          <!-- Provider + Date -->
+          <div class="tr-form-row">
+            <div class="tr-form-group" style="position:relative">
+              <label class="tr-field-label">Plateforme / Source</label>
+              <input
+                type="text"
+                class="tr-field-input"
+                placeholder="Ex : Iraiser, HelloAsso…"
+                [value]="providerInput()"
+                (input)="onProviderInput($any($event.target).value)"
+                (focus)="onProviderInput(providerInput())"
+                (click)="$event.stopPropagation()"
+              />
+              @if (showSuggestions() && providerSuggestions().length > 0) {
+                <div class="tr-suggestions">
+                  @for (p of providerSuggestions(); track p) {
+                    <div class="tr-suggestion-item" (mousedown)="selectProvider(p)">{{ p }}</div>
+                  }
+                </div>
+              }
+            </div>
+            <div class="tr-form-group">
+              <label class="tr-field-label">Date planifiée</label>
+              <input
+                type="date"
+                class="tr-field-input"
+                [value]="createDate()"
+                (input)="createDate.set($any($event.target).value)"
+              />
+            </div>
+          </div>
+
+          <!-- Notes -->
+          <div class="tr-form-group">
+            <label class="tr-field-label">Notes</label>
+            <textarea
+              class="tr-field-textarea"
+              rows="2"
+              placeholder="Informations complémentaires…"
+              [value]="createNotes()"
+              (input)="createNotes.set($any($event.target).value)"
+            ></textarea>
+          </div>
+
+          <!-- Wells section (shown once country selected) -->
+          @if (createCountry()) {
+            <div class="tr-wells-section">
+              <div class="tr-wells-head">
+                <span class="tr-wells-title">
+                  <lucide-icon name="droplets" [size]="14"></lucide-icon>
+                  Puits disponibles
+                  @if (availableWells().length > 0) {
+                    <span class="tr-badge">{{ availableWells().length }}</span>
+                  }
+                </span>
+                @if (availableWells().length > 0) {
+                  <label class="tr-check-wrap">
+                    <input type="checkbox" [checked]="allWellsSelected()" (change)="toggleAllWells()" />
+                    <span class="tr-check-label">Tout</span>
+                  </label>
+                }
+              </div>
+              <div class="tr-wells-search">
+                <lucide-icon name="search" [size]="13" class="tr-panel-search-icon"></lucide-icon>
+                <input
+                  type="text"
+                  class="tr-panel-search-input"
+                  placeholder="Rechercher un puits…"
+                  [value]="searchWell()"
+                  (input)="searchWell.set($any($event.target).value)"
+                />
+              </div>
+              <div class="tr-wells-list">
+                @if (loadingWells()) {
+                  <div class="tr-panel-loading">
+                    <lucide-icon name="loader-2" [size]="16" class="tr-spin"></lucide-icon>
+                  </div>
+                } @else if (filteredAvailableWells().length === 0) {
+                  <div class="tr-panel-empty">
+                    <lucide-icon name="inbox" [size]="20"></lucide-icon>
+                    <span>Aucun puits disponible</span>
+                  </div>
+                } @else {
+                  @for (w of filteredAvailableWells(); track w.id) {
+                    <label class="tr-well-row" [class.selected]="selectedWells().includes(w.id)">
+                      <input type="checkbox" [checked]="selectedWells().includes(w.id)" (change)="toggleWell(w.id)" />
+                      <div class="tr-well-info">
+                        <span class="tr-well-code">{{ w.code }}</span>
+                        @if (w.plaque) {
+                          <span class="tr-well-plaque">{{ w.plaque }}</span>
+                        }
+                      </div>
+                      @if (w.paidAmount) {
+                        <span class="tr-well-amount">{{ fmtAmount(w.paidAmount) }}</span>
+                      }
+                    </label>
+                  }
+                }
+              </div>
+              @if (selectedWells().length > 0) {
+                <div class="tr-wells-selected-info">
+                  <lucide-icon name="check-circle-2" [size]="13"></lucide-icon>
+                  {{ selectedWells().length }} puits sélectionné(s)
+                </div>
+              }
+            </div>
+          }
+
+        </div><!-- /tr-modal-body -->
+
+        <div class="tr-modal-foot">
+          <button class="tr-btn tr-btn-ghost" (click)="showCreateModal.set(false)">Annuler</button>
+          <button
+            class="tr-btn tr-btn-primary"
+            [disabled]="!createCountry() || selectedWells().length === 0 || createLoading()"
+            (click)="submitCreate()"
+          >
+            @if (createLoading()) {
+              <lucide-icon name="loader-2" [size]="14" class="tr-spin"></lucide-icon>
+            }
+            Créer la tranche
+          </button>
+        </div>
+
+      </div>
+    </div>
   }
 
 </div>

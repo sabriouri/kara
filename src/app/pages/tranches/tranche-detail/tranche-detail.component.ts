@@ -14,21 +14,34 @@ interface Well {
   rdStatus: string;
   paidAmount: number;
   targetAmount: number;
+  donorEmail?: string;
 }
 
 interface TrancheDetail {
   id: string;
   reference: string;
-  name?: string;
   country: string;
+  region?: string;
   status: string;
-  amount?: number;
-  description?: string;
+  totalAmount?: number;
+  provider?: string;
+  startedDate?: string;
+  inauguratedDate?: string;
+  deliveredDate?: string;
+  notes?: string;
   createdAt?: string;
   updatedAt?: string;
   wells?: Well[];
-  _count?: { wells?: number };
+  wellCount?: number;
+  createdBy?: { firstName: string; lastName: string };
 }
+
+const STATUS_MAP: Record<string, { label: string; color: string; bg: string; icon: string }> = {
+  PLANIFIEE:  { label: 'Planifiée',  color: '#f59e0b', bg: '#fffbeb', icon: 'clipboard-list'   },
+  EN_TRAVAUX: { label: 'En travaux', color: '#3b82f6', bg: '#eff6ff', icon: 'hammer'            },
+  INAUGUREE:  { label: 'Inaugurée',  color: '#10b981', bg: '#f0fdf4', icon: 'flag'              },
+  LIVREE:     { label: 'Livrée',     color: '#6366f1', bg: '#f5f3ff', icon: 'circle-check-big'  },
+};
 
 @Component({
   selector: 'app-tranche-detail',
@@ -48,42 +61,29 @@ export class TrancheDetailComponent implements OnInit {
   editMode = signal(false);
   editForm = signal<Partial<TrancheDetail>>({});
 
-  readonly statusOptions = [
-    { value: 'PLANIFIEE',  label: 'Planifiée',  color: '#94A3B8', bg: '#F1F5F9' },
-    { value: 'EN_TRAVAUX', label: 'En travaux', color: '#F59E0B', bg: '#FFFBEB' },
-    { value: 'INAUGUREE',  label: 'Inaugurée',  color: '#1AABE2', bg: '#E8F6FD' },
-    { value: 'LIVREE',     label: 'Livrée',     color: '#52AE4F', bg: '#EBF7EA' },
-  ];
+  readonly statusOptions = Object.entries(STATUS_MAP).map(([value, v]) => ({ value, ...v }));
 
   readonly projectStatusColors: Record<string, string> = {
     PLANIFIE: '#f59e0b', EN_TRAVAUX: '#3b82f6',
-    TRANCHE_1_INAUGUREE: '#10b981', TRANCHE_2_INAUGUREE: '#10b981', TRANCHE_3_INAUGUREE: '#10b981',
-    TERMINE: '#6366f1',
+    TRANCHE_1_INAUGUREE: '#10b981', TRANCHE_2_INAUGUREE: '#10b981',
+    TRANCHE_3_INAUGUREE: '#10b981', TERMINE: '#6366f1',
   };
 
-  totalCollected = computed(() => {
-    const t = this.tranche();
-    return t?.wells?.reduce((sum, w) => sum + (w.paidAmount ?? 0), 0) ?? 0;
-  });
+  totalCollected = computed(() =>
+    this.tranche()?.wells?.reduce((s, w) => s + (w.paidAmount ?? 0), 0) ?? 0
+  );
 
-  totalTarget = computed(() => {
-    const t = this.tranche();
-    return t?.wells?.reduce((sum, w) => sum + (w.targetAmount ?? 0), 0) ?? 0;
-  });
+  totalTarget = computed(() =>
+    this.tranche()?.wells?.reduce((s, w) => s + (w.targetAmount ?? 0), 0) ?? 0
+  );
 
   constructor(private route: ActivatedRoute, private http: HttpClient) {}
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     this.http.get<any>(`${this.API}/tranches/${id}`).subscribe({
-      next: res => {
-        this.tranche.set(res.data ?? res);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.error.set('Tranche introuvable.');
-        this.loading.set(false);
-      }
+      next: res => { this.tranche.set(res.data ?? res); this.loading.set(false); },
+      error: ()  => { this.error.set('Tranche introuvable.'); this.loading.set(false); },
     });
   }
 
@@ -116,12 +116,12 @@ export class TrancheDetailComponent implements OnInit {
         this.saving.set(false);
         this.saveMsg.set('Erreur');
         setTimeout(() => this.saveMsg.set(''), 3000);
-      }
+      },
     });
   }
 
-  getStatusInfo(s: string): { label: string; color: string; bg: string } {
-    return this.statusOptions.find(o => o.value === s) ?? { label: s.replace(/_/g, ' '), color: '#94A3B8', bg: '#F1F5F9' };
+  getStatusInfo(s: string) {
+    return STATUS_MAP[s] ?? { label: s.replace(/_/g, ' '), color: '#94a3b8', bg: '#f1f5f9', icon: 'circle' };
   }
 
   getProjectStatusColor(s: string): string {
@@ -133,12 +133,18 @@ export class TrancheDetailComponent implements OnInit {
     return Math.min(Math.round((w.paidAmount / w.targetAmount) * 100), 100);
   }
 
-  fmt(n: number): string {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n ?? 0);
+  fmtAmount(n?: number): string {
+    if (n == null) return '—';
+    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
   }
 
   fmtDate(d?: string): string {
     if (!d) return '–';
     return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+  }
+
+  fmtShortDate(d?: string): string {
+    if (!d) return '–';
+    return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 }

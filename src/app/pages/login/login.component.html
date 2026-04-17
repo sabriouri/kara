@@ -50,18 +50,5 @@
       </button>
     </form>
 
-    <!-- Comptes de test -->
-    <div class="test-accounts">
-      <p class="test-title">Accès de démonstration</p>
-      <div class="test-list">
-        @for (account of testAccounts; track account.email) {
-          <button class="test-item" (click)="fillAccount(account.email, account.pwd)">
-            <span class="test-role">{{ account.role }}</span>
-            <span class="test-email">{{ account.email }}</span>
-          </button>
-        }
-      </div>
-      <p class="test-pwd">Mot de passe : <strong>password123</strong></p>
-    </div>
   </div>
 </div>

@@ -17,18 +17,7 @@ export class LoginComponent {
   loading  = signal(false);
   error    = signal('');
 
-  readonly testAccounts = [
-    { role: 'Super Admin',        email: 'admin@kara.com',   pwd: 'password123' },
-    { role: 'Relation Donateur',  email: 'rd@kara.com',      pwd: 'password123' },
-    { role: 'Pôle Projet',        email: 'project@kara.com', pwd: 'password123' },
-  ];
-
   constructor(private auth: AuthService, private router: Router) {}
-
-  fillAccount(email: string, pwd: string): void {
-    this.email.set(email);
-    this.password.set(pwd);
-  }
 
   onSubmit(): void {
     if (!this.email() || !this.password()) {

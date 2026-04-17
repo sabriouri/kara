@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../core/services/auth.service';
 import { PoleService } from '../../core/services/pole.service';
+import { WellService } from '../../core/services/well.service';
 import { LucideAngularModule } from 'lucide-angular';
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
@@ -76,7 +77,6 @@ const POLE_QUICK_ACTIONS: Record<string, { label: string; sub: string; path: str
   styleUrl: './dashboard.component.css',
 })
 export class DashboardComponent implements OnInit {
-  private readonly API = '/api';
 
   // ── Pole ──────────────────────────────────────────────────────────────────
   currentPole = computed(() => this.poleService.currentPoleId());
@@ -130,6 +130,7 @@ export class DashboardComponent implements OnInit {
     public auth: AuthService,
     private router: Router,
     private poleService: PoleService,
+    private wellService: WellService,
   ) {
     effect(() => {
       const poleId = this.currentPole();
@@ -147,7 +148,7 @@ export class DashboardComponent implements OnInit {
   loadDataForPole(_poleId: string): void {
     this.wellsStats.set(null);
 
-    this.http.get<any>(`${this.API}/wells/stats`).subscribe({
+    this.wellService.getStats().subscribe({
       next: res => {
         this.wellsStats.set(res.data ?? res);
         this.loading.set(false);

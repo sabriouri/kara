@@ -2,8 +2,8 @@ import { Component, signal, computed, OnInit, ViewChild, ElementRef } from '@ang
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { LucideAngularModule } from 'lucide-angular';
+import { WellService } from '../../core/services/well.service';
 
 export interface WellDonor {
   donorName:  string;
@@ -52,7 +52,6 @@ interface ImportRow {
   styleUrl: './wells.component.css',
 })
 export class WellsComponent implements OnInit {
-  private readonly API = '/api';
 
   @ViewChild('csvInput') csvInput!: ElementRef<HTMLInputElement>;
 
@@ -115,7 +114,7 @@ export class WellsComponent implements OnInit {
 
   readonly limitOptions = [50, 100, 200, 500];
 
-  constructor(private http: HttpClient) {}
+  constructor(private wellService: WellService) {}
 
   ngOnInit(): void { this.loadWells(); }
 
@@ -127,7 +126,7 @@ export class WellsComponent implements OnInit {
     if (this.rdStatus())      p.rdStatus      = this.rdStatus();
     if (this.country())       p.country       = this.country();
 
-    this.http.get<any>(`${this.API}/wells`, { params: p }).subscribe({
+    this.wellService.getAll(p).subscribe({
       next: res => {
         const d = res.data ?? res;
         this.wells.set(d.wells ?? []);
@@ -185,7 +184,7 @@ export class WellsComponent implements OnInit {
     if (!this.form().zone) { this.createError.set('Zone requise'); return; }
     this.createLoading.set(true);
     this.createError.set('');
-    this.http.post<any>(`${this.API}/wells/create`, this.form()).subscribe({
+    this.wellService.create(this.form()).subscribe({
       next: () => {
         this.createLoading.set(false);
         this.closeCreate();
@@ -351,7 +350,7 @@ export class WellsComponent implements OnInit {
     this.importStage.set('importing');
     this.importProgress.set(10);
 
-    this.http.post<any>(`${this.API}/wells/bulk-import`, { wells }).subscribe({
+    this.wellService.bulkImport(wells).subscribe({
       next: (res) => {
         this.importResults.set(res);
         this.importProgress.set(100);
@@ -377,7 +376,7 @@ export class WellsComponent implements OnInit {
       return;
     }
     this.importProgress.set(Math.round(10 + (idx / wells.length) * 90));
-    this.http.post<any>(`${this.API}/wells/create`, wells[idx]).subscribe({
+    this.wellService.create(wells[idx]).subscribe({
       next: () => {
         acc.created++;
         this.importOneByOne(wells, idx + 1, acc);

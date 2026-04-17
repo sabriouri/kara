@@ -1,9 +1,10 @@
 import { Component, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { LucideAngularModule } from 'lucide-angular';
+import { InstalmentService } from '../../core/services/instalment.service';
+import { VirementService } from '../../core/services/virement.service';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -82,7 +83,6 @@ interface SyncLog {
   styleUrl: './mensualisations.component.css',
 })
 export class MensualisationsComponent implements OnInit {
-  private readonly API = '/api';
 
   // ── List state ──
   instalments       = signal<Instalment[]>([]);
@@ -177,7 +177,11 @@ export class MensualisationsComponent implements OnInit {
     { id: '4600', code: '4600', name: 'FOND URGENCE'  },
   ];
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(
+    private router: Router,
+    private instalmentService: InstalmentService,
+    private virementService: VirementService,
+  ) {}
 
   ngOnInit(): void {
     this.loadStats();
@@ -189,7 +193,7 @@ export class MensualisationsComponent implements OnInit {
 
   loadStats(): void {
     this.statsLoading.set(true);
-    this.http.get<any>(`${this.API}/instalments/stats`).subscribe({
+    this.instalmentService.getStats().subscribe({
       next: r => {
         // Handle { data: { ... } } OR { data: { data: { ... } } }
         const outer = r?.data ?? r;
@@ -211,7 +215,7 @@ export class MensualisationsComponent implements OnInit {
     if (this.filterStatus()) p.status = this.filterStatus();
     if (this.filterSource()) p.source = this.filterSource();
     if (this.filterSearch()) p.search = this.filterSearch();
-    this.http.get<any>(`${this.API}/instalments`, { params: p }).subscribe({
+    this.instalmentService.getAll(p).subscribe({
       next: r => {
         // Handle nested wrapper: { data: { instalments: [] } } OR { data: { data: { instalments: [] } } }
         const outer = r?.data ?? r;
@@ -242,7 +246,7 @@ export class MensualisationsComponent implements OnInit {
   }
 
   loadPaymentSources(): void {
-    this.http.get<any>(`${this.API}/virements/payment-sources`).subscribe({
+    this.virementService.getPaymentSources().subscribe({
       next: r => {
         const outer = r?.data ?? r;
         const sources = outer?.data ?? outer;
@@ -265,7 +269,7 @@ export class MensualisationsComponent implements OnInit {
 
   syncIraiser(): void {
     this.syncingIraiser.set(true);
-    this.http.post<any>(`${this.API}/instalments/sync-iraiser`, {}).subscribe({
+    this.instalmentService.syncIraiser().subscribe({
       next: r => {
         this.syncingIraiser.set(false);
         this.syncMessage.set(r.message ?? 'Sync iRaiser effectuée');
@@ -278,7 +282,7 @@ export class MensualisationsComponent implements OnInit {
 
   syncGocardless(): void {
     this.syncingGocardless.set(true);
-    this.http.post<any>(`${this.API}/instalments/sync-gocardless`, {}).subscribe({
+    this.instalmentService.syncGocardless().subscribe({
       next: r => {
         this.syncingGocardless.set(false);
         this.syncMessage.set(r.message ?? 'Sync GoCardless effectuée');
@@ -294,7 +298,7 @@ export class MensualisationsComponent implements OnInit {
   openSyncHistory(): void {
     this.showSyncHistory.set(true);
     this.syncLogsLoading.set(true);
-    this.http.get<any>(`${this.API}/instalments/sync-history`).subscribe({
+    this.instalmentService.getSyncHistory().subscribe({
       next: r => { this.syncLogs.set(r.data ?? r ?? []); this.syncLogsLoading.set(false); },
       error: () => { this.syncLogs.set([]); this.syncLogsLoading.set(false); },
     });
@@ -305,14 +309,14 @@ export class MensualisationsComponent implements OnInit {
   openDuplicates(): void {
     this.showDuplicates.set(true);
     this.dupLoading.set(true);
-    this.http.get<any>(`${this.API}/instalments/duplicates`).subscribe({
+    this.instalmentService.getDuplicates().subscribe({
       next: r => { this.duplicates.set(r.data ?? r ?? []); this.dupLoading.set(false); },
       error: () => { this.duplicates.set([]); this.dupLoading.set(false); },
     });
   }
 
   mergeDuplicate(keepId: string, removeId: string): void {
-    this.http.post<any>(`${this.API}/instalments/merge`, { keepId, removeId }).subscribe({
+    this.instalmentService.mergeDuplicates(keepId, removeId).subscribe({
       next: () => { this.openDuplicates(); this.load(); this.loadStats(); },
       error: () => {},
     });
@@ -367,7 +371,7 @@ export class MensualisationsComponent implements OnInit {
     const dateFr = dateParts.length === 3 ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : this.solderDate();
     const wellCode = fin.well?.code || inst.well?.code || '';
 
-    this.http.post<any>(`${this.API}/virements/validate`, {
+    this.virementService.validate({
       date:          dateFr,
       montant:       montant,
       libelle:       this.solderNote() || `Solde manuel - ${wellCode}`,

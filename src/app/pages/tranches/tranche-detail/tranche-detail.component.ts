@@ -2,8 +2,8 @@ import { Component, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { LucideAngularModule } from 'lucide-angular';
+import { TrancheService } from '../../../core/services/tranche.service';
 
 interface Well {
   id: string;
@@ -51,7 +51,6 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string; ico
   styleUrl: './tranche-detail.component.css'
 })
 export class TrancheDetailComponent implements OnInit {
-  private readonly API = '/api';
 
   tranche  = signal<TrancheDetail | null>(null);
   loading  = signal(true);
@@ -77,11 +76,11 @@ export class TrancheDetailComponent implements OnInit {
     this.tranche()?.wells?.reduce((s, w) => s + (w.targetAmount ?? 0), 0) ?? 0
   );
 
-  constructor(private route: ActivatedRoute, private http: HttpClient) {}
+  constructor(private route: ActivatedRoute, private trancheService: TrancheService) {}
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
-    this.http.get<any>(`${this.API}/tranches/${id}`).subscribe({
+    this.trancheService.getById(id!).subscribe({
       next: res => { this.tranche.set(res.data ?? res); this.loading.set(false); },
       error: ()  => { this.error.set('Tranche introuvable.'); this.loading.set(false); },
     });
@@ -104,7 +103,7 @@ export class TrancheDetailComponent implements OnInit {
     const t = this.tranche();
     if (!t) return;
     this.saving.set(true);
-    this.http.patch<any>(`${this.API}/tranches/${t.id}`, this.editForm()).subscribe({
+    this.trancheService.update(t.id, this.editForm()).subscribe({
       next: res => {
         this.tranche.set(res.data ?? res);
         this.editMode.set(false);

@@ -2,8 +2,8 @@ import { Component, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { LucideAngularModule } from 'lucide-angular';
+import { WellService } from '../../../core/services/well.service';
 
 interface Comment {
   id: string;
@@ -61,7 +61,6 @@ type Tab = 'info' | 'finance' | 'donor' | 'dates' | 'comments';
   styleUrl: './well-detail.component.css'
 })
 export class WellDetailComponent implements OnInit {
-  private readonly API = '/api';
 
   well       = signal<WellDetail | null>(null);
   loading    = signal(true);
@@ -110,11 +109,11 @@ export class WellDetailComponent implements OnInit {
     return Math.min(Math.round((w.paidAmount / w.targetAmount) * 100), 100);
   });
 
-  constructor(private route: ActivatedRoute, private http: HttpClient) {}
+  constructor(private route: ActivatedRoute, private wellService: WellService) {}
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
-    this.http.get<any>(`${this.API}/wells/${id}`).subscribe({
+    this.wellService.getById(id!).subscribe({
       next: res => {
         const d = res.data ?? res;
         this.well.set(d);
@@ -146,7 +145,7 @@ export class WellDetailComponent implements OnInit {
     const w = this.well();
     if (!w) return;
     this.saving.set(true);
-    this.http.patch<any>(`${this.API}/wells/${w.id}`, this.editForm()).subscribe({
+    this.wellService.update(w.id, this.editForm()).subscribe({
       next: res => {
         const d = res.data ?? res;
         this.well.set(d);
@@ -168,11 +167,11 @@ export class WellDetailComponent implements OnInit {
     const txt = this.newComment().trim();
     if (!w || !txt) return;
     this.addingComment.set(true);
-    this.http.post<any>(`${this.API}/wells/${w.id}/comments`, { content: txt }).subscribe({
+    this.wellService.addComment(w.id, txt).subscribe({
       next: res => {
         const updated = res.data ?? res;
         // Re-fetch to get updated comments list
-        this.http.get<any>(`${this.API}/wells/${w.id}`).subscribe({
+        this.wellService.getById(w.id).subscribe({
           next: r2 => {
             this.well.set(r2.data ?? r2);
             this.newComment.set('');

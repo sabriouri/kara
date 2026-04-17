@@ -2,10 +2,11 @@ import { Component, signal, computed, OnInit, HostListener } from '@angular/core
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { LucideAngularModule } from 'lucide-angular';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { AuthService } from '../../core/services/auth.service';
+import { TrancheService } from '../../core/services/tranche.service';
+import { WellService } from '../../core/services/well.service';
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -65,7 +66,6 @@ const PROVIDER_KEY = 'kara_providers';
   styleUrl: './tranches.component.css',
 })
 export class TranchesComponent implements OnInit {
-  private readonly API = '/api';
 
   readonly statuses  = STATUSES;
   readonly countries = COUNTRIES;
@@ -140,9 +140,10 @@ export class TranchesComponent implements OnInit {
   });
 
   constructor(
-    private http: HttpClient,
     private router: Router,
     public auth: AuthService,
+    private trancheService: TrancheService,
+    private wellService: WellService,
   ) {}
 
   ngOnInit(): void { this.load(); }
@@ -153,7 +154,7 @@ export class TranchesComponent implements OnInit {
     this.loading.set(true);
     const params: any = {};
     if (this.filterCountry()) params.country = this.filterCountry();
-    this.http.get<any>(`${this.API}/tranches`, { params }).subscribe({
+    this.trancheService.getAll(params).subscribe({
       next: res => {
         this.tranches.set(res.data?.data ?? res.data ?? []);
         this.loading.set(false);
@@ -181,7 +182,7 @@ export class TranchesComponent implements OnInit {
       this.tranches.update(all =>
         all.map(t => t.id === tranche.id ? { ...t, status: targetStatus } : t)
       );
-      this.http.put(`${this.API}/tranches/${tranche.id}/status`, { status: targetStatus })
+      this.trancheService.updateStatus(tranche.id, targetStatus)
         .subscribe({ error: () => this.load() });
     }
   }
@@ -204,9 +205,7 @@ export class TranchesComponent implements OnInit {
   loadFreeWells(): void {
     this.freeLoading.set(true);
     this.freeSelected.set(new Set());
-    this.http.get<any>(`${this.API}/wells`, {
-      params: { limit: 2000, country: this.freeCountry() },
-    }).subscribe({
+    this.wellService.getAll({ limit: 2000, country: this.freeCountry() }).subscribe({
       next: res => {
         const all: FreeWell[] = res.data?.wells ?? res.data ?? [];
         this.freeWells.set(all.filter(w => !w.trancheId));
@@ -253,7 +252,7 @@ export class TranchesComponent implements OnInit {
     if (!this.assignTargetId()) return;
     this.assignLoading.set(true);
     const wellIds = [...this.freeSelected()];
-    this.http.put(`${this.API}/tranches/${this.assignTargetId()}/wells/add`, { wellIds }).subscribe({
+    this.trancheService.addWells(this.assignTargetId(), wellIds).subscribe({
       next: () => {
         this.assignLoading.set(false);
         this.showAssignModal.set(false);
@@ -287,7 +286,7 @@ export class TranchesComponent implements OnInit {
     this.searchWell.set('');
     if (!country) { this.availableWells.set([]); return; }
     this.loadingWells.set(true);
-    this.http.get<any>(`${this.API}/tranches/wells/available`, { params: { country } }).subscribe({
+    this.trancheService.getAvailableWells(country).subscribe({
       next: res => {
         this.availableWells.set(res.data?.data ?? res.data ?? []);
         this.loadingWells.set(false);
@@ -332,7 +331,7 @@ export class TranchesComponent implements OnInit {
   submitCreate(): void {
     if (!this.createCountry() || this.selectedWells().length === 0) return;
     this.createLoading.set(true);
-    this.http.post(`${this.API}/tranches`, {
+    this.trancheService.create({
       country:     this.createCountry(),
       region:      this.createRegion(),
       provider:    this.createProvider(),

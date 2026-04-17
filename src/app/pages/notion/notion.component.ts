@@ -118,15 +118,16 @@ export class NotionComponent implements OnInit, OnDestroy {
   private charImg   = new Image();
   private imgsReady = 0;
   private keys      = new Set<string>();
-  private player    = { x: 512, y: 650, dir: 0, frame: 1, frameTimer: 0 };
+  private player    = { x: 512, y: 650, dir: 0, frame: 1, frameTimer: 0, facingLeft: false };
   private lastTime  = 0;
   private onKeyDown?: (e: KeyboardEvent) => void;
   private onKeyUp?:   (e: KeyboardEvent) => void;
 
-  // Sprite layout: single row, 12 frames total
-  private readonly TOTAL_FRAMES = 12;
+  // Sprite layout: single row, 4 directions × 3 frames
+  // Order: down(0-2) | left(3-5) | right(6-8) | up(9-11)
+  private readonly FRAMES_PER_DIR = 3;
   private readonly SPEED    = 3;
-  private readonly FRAME_MS = 140;
+  private readonly FRAME_MS = 150;
 
   // ── Search debounce ────────────────────────────────────────────────────────
   private searchTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -151,7 +152,7 @@ export class NotionComponent implements OnInit, OnDestroy {
 
   enterVillage(): void {
     this.villageMode.set(true);
-    this.player = { x: 512, y: 650, dir: 0, frame: 1, frameTimer: 0 };
+    this.player = { x: 512, y: 650, dir: 0, frame: 1, frameTimer: 0, facingLeft: false };
     this.imgsReady = 0;
     setTimeout(() => {
       this.resizeCanvas();
@@ -234,10 +235,11 @@ export class NotionComponent implements OnInit, OnDestroy {
     this.lastTime = t;
     let dx = 0, dy = 0;
 
-    if (this.keys.has('ArrowLeft')  || this.keys.has('a') || this.keys.has('A')) { dx -= this.SPEED; this.player.dir = 1; }
-    if (this.keys.has('ArrowRight') || this.keys.has('d') || this.keys.has('D')) { dx += this.SPEED; this.player.dir = 2; }
-    if (this.keys.has('ArrowUp')    || this.keys.has('w') || this.keys.has('W')) { dy -= this.SPEED; this.player.dir = 3; }
-    if (this.keys.has('ArrowDown')  || this.keys.has('s') || this.keys.has('S')) { dy += this.SPEED; this.player.dir = 0; }
+    // Sprite sheet actual layout: col 0–2=up(back) | 3–5=left | 6–8=down(face) | 9–11=right
+    if (this.keys.has('ArrowLeft')  || this.keys.has('a') || this.keys.has('A')) { dx -= this.SPEED; this.player.dir = 1; } // col 3-5
+    if (this.keys.has('ArrowRight') || this.keys.has('d') || this.keys.has('D')) { dx += this.SPEED; this.player.dir = 3; } // col 9-11
+    if (this.keys.has('ArrowUp')    || this.keys.has('w') || this.keys.has('W')) { dy -= this.SPEED; this.player.dir = 0; } // col 0-2
+    if (this.keys.has('ArrowDown')  || this.keys.has('s') || this.keys.has('S')) { dy += this.SPEED; this.player.dir = 2; } // col 6-8
 
     const moving = dx !== 0 || dy !== 0;
     if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
@@ -249,11 +251,11 @@ export class NotionComponent implements OnInit, OnDestroy {
     if (moving) {
       this.player.frameTimer += dt;
       if (this.player.frameTimer >= this.FRAME_MS) {
-        this.player.frame = (this.player.frame + 1) % this.TOTAL_FRAMES;
+        this.player.frame = (this.player.frame + 1) % this.FRAMES_PER_DIR;
         this.player.frameTimer = 0;
       }
     } else {
-      this.player.frame = 0; // idle = first frame
+      this.player.frame = 1; // idle = middle frame (neutral pose)
       this.player.frameTimer = 0;
     }
 
@@ -334,24 +336,18 @@ export class NotionComponent implements OnInit, OnDestroy {
     const pw    = ph * 0.67;
     const feetY = this.player.y;
 
-    // Shadow under feet
-    ctx.save();
-    ctx.globalAlpha = 0.30;
-    ctx.fillStyle = '#000';
-    ctx.beginPath();
-    ctx.ellipse(this.player.x, feetY + 3, pw * 0.50, pw * 0.16, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.restore();
-
     if (this.charImg.complete && this.charImg.naturalWidth > 0) {
-      const frameW   = this.charImg.naturalWidth / this.TOTAL_FRAMES;
-      const frameH   = this.charImg.naturalHeight;
-      const sx       = this.player.frame * frameW;
-      // Shift sprite DOWN by 12% so visual feet sit on feetY (most sprites
-      // have ~10-15% transparent padding at the bottom of each frame)
-      const topY     = feetY - ph * 0.88;
-      ctx.drawImage(this.charImg, sx, 0, frameW, frameH, this.player.x - pw/2, topY, pw, ph);
+      // Sprite sheet: single row, 4 dirs × 3 frames = 12 columns
+      // Order: down(0–2) | left(3–5) | right(6–8) | up(9–11)
+      const totalFrames = this.FRAMES_PER_DIR * 4; // 12
+      const frameW  = this.charImg.naturalWidth  / totalFrames;
+      const frameH  = this.charImg.naturalHeight;
+      const frameIdx = this.player.dir * this.FRAMES_PER_DIR + this.player.frame;
+      const sx      = frameIdx * frameW;
+      // Anchor: sprite bottom = feetY (character stands on the ground)
+      const topY    = feetY - ph;
+
+      ctx.drawImage(this.charImg, sx, 0, frameW, frameH, this.player.x - pw / 2, topY, pw, ph);
     } else {
       ctx.save();
       ctx.fillStyle = '#92400e';

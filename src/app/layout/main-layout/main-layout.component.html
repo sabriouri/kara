@@ -1,5 +1,5 @@
 <div class="app-shell" [class.collapsed]="collapsed()">
-  <aside class="sidebar" [style.--pole-color]="activePole().color">
+  <aside class="sidebar" [style.--pole-color]="activePole().color" [attr.data-pole]="activePoleId()">
     <!-- Logo -->
     <div class="sidebar-logo">
       @if (!collapsed()) {

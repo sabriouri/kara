@@ -50,6 +50,7 @@
   object-fit: contain;
   flex-shrink: 0;
   margin-top: 0;
+  transition: filter 220ms ease;
 }
 
 /* Logo sidebar réduit (icône seule) */
@@ -58,6 +59,34 @@
   height: 48px;
   object-fit: contain;
   margin-top: 0;
+  transition: filter 220ms ease;
+}
+
+/* ── Couleur logo selon le pôle actif ─────────────────────────────────── */
+/* rd — #1AABE2 bleu */
+[data-pole="rd"]         .logo-img-full,
+[data-pole="rd"]         .logo-img-small {
+  filter: brightness(0) saturate(100%) invert(58%) sepia(62%) saturate(602%) hue-rotate(163deg) brightness(98%);
+}
+/* marketing — #8b5cf6 violet */
+[data-pole="marketing"]  .logo-img-full,
+[data-pole="marketing"]  .logo-img-small {
+  filter: brightness(0) saturate(100%) invert(47%) sepia(76%) saturate(1200%) hue-rotate(238deg) brightness(102%);
+}
+/* compta — #52AE4F vert */
+[data-pole="compta"]     .logo-img-full,
+[data-pole="compta"]     .logo-img-small {
+  filter: brightness(0) saturate(100%) invert(58%) sepia(35%) saturate(600%) hue-rotate(78deg) brightness(95%);
+}
+/* projet — #f59e0b ambre */
+[data-pole="projet"]     .logo-img-full,
+[data-pole="projet"]     .logo-img-small {
+  filter: brightness(0) saturate(100%) invert(72%) sepia(75%) saturate(800%) hue-rotate(5deg) brightness(102%);
+}
+/* social — #ef4444 rouge */
+[data-pole="social"]     .logo-img-full,
+[data-pole="social"]     .logo-img-small {
+  filter: brightness(0) saturate(100%) invert(42%) sepia(85%) saturate(1400%) hue-rotate(330deg) brightness(100%);
 }
 
 .logo-fallback-brand {

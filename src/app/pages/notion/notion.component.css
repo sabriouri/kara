@@ -49,6 +49,130 @@
   margin: 0;
 }
 
+/* ── Header actions ────────────────────────────────────────────────────────── */
+.notion-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Village button ────────────────────────────────────────────────────────── */
+.notion-btn-village {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #92400e, #d97706);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 150ms, transform 150ms;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(217,119,6,.35);
+}
+.notion-btn-village:hover { opacity: .88; transform: translateY(-1px); }
+
+/* ── Village wrapper ───────────────────────────────────────────────────────── */
+.village-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  background: #0d1b2a;
+  flex: 1;
+  overflow: hidden;
+}
+
+.village-topbar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: rgba(0,0,0,.35);
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  flex-shrink: 0;
+}
+
+.village-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(255,255,255,.85);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.village-near-badge {
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #fff;
+  animation: pulse-badge 1s ease-in-out infinite alternate;
+}
+@keyframes pulse-badge {
+  from { opacity: .8; }
+  to   { opacity: 1; transform: scale(1.03); }
+}
+
+.village-close-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
+  color: rgba(255,255,255,.75);
+  border-radius: 7px;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 150ms;
+}
+.village-close-btn:hover { background: rgba(239,68,68,.25); color: #fff; }
+
+.village-canvas-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.village-canvas {
+  border-radius: 12px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.6);
+  image-rendering: pixelated;
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+}
+
+.village-pole-hints {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  background: rgba(0,0,0,.3);
+  border-top: 1px solid rgba(255,255,255,.06);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: rgba(255,255,255,.5);
+}
+.village-hint-label { font-weight: 600; margin-right: 4px; }
+.village-pole-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Hide body in village mode */
+.notion-body--hidden { display: none !important; }
+
 .notion-btn-new {
   display: inline-flex;
   align-items: center;

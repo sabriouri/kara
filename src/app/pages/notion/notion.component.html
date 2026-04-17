@@ -9,13 +9,52 @@
       </h1>
       <p class="notion-subtitle">Notes inter-pôles — Dignité International</p>
     </div>
-    <button class="notion-btn-new" (click)="openNew()">
-      <lucide-icon name="plus" [size]="16"></lucide-icon>
-      Nouvelle note
-    </button>
+    <div class="notion-header-actions">
+      <button class="notion-btn-village" (click)="enterVillage()">
+        <lucide-icon name="gamepad-2" [size]="16"></lucide-icon>
+        Village KARA
+      </button>
+      <button class="notion-btn-new" (click)="openNew()">
+        <lucide-icon name="plus" [size]="16"></lucide-icon>
+        Nouvelle note
+      </button>
+    </div>
   </div>
 
+  <!-- ── Village mode ──────────────────────────────────────────────────────── -->
+  @if (villageMode()) {
+    <div class="village-wrap">
+      <div class="village-topbar">
+        <div class="village-topbar-left">
+          <lucide-icon name="gamepad-2" [size]="16" style="color:#f59e0b"></lucide-icon>
+          <span>Village KARA</span>
+          @if (nearBuilding(); as b) {
+            <span class="village-near-badge" [style.background]="b.color">
+              {{ b.label }} — Appuyez sur ↵
+            </span>
+          }
+        </div>
+        <button class="village-close-btn" (click)="exitVillage()">
+          <lucide-icon name="x" [size]="16"></lucide-icon>
+          Quitter
+        </button>
+      </div>
+      <div class="village-canvas-wrap">
+        <canvas #villageCanvas class="village-canvas"></canvas>
+      </div>
+      <div class="village-pole-hints">
+        <span class="village-hint-label">Bâtiments :</span>
+        <span class="village-pole-dot" style="background:#2563eb"></span><span>Relation Donateur</span>
+        <span class="village-pole-dot" style="background:#059669"></span><span>Comptabilité</span>
+        <span class="village-pole-dot" style="background:#7c3aed"></span><span>Marketing</span>
+        <span class="village-pole-dot" style="background:#dc2626"></span><span>Social France</span>
+        <span class="village-pole-dot" style="background:#d97706"></span><span>Pôle Projet</span>
+      </div>
+    </div>
+  }
+
   <!-- ── Filters ─────────────────────────────────────────────────────────── -->
+  @if (!villageMode()) {
   <div class="notion-filters">
 
     <!-- Search -->
@@ -68,8 +107,10 @@
     </div>
   </div>
 
+  } <!-- end @if(!villageMode) filters -->
+
   <!-- ── Body ────────────────────────────────────────────────────────────── -->
-  <div class="notion-body">
+  <div class="notion-body" [class.notion-body--hidden]="villageMode()">
 
     <!-- Left: notes list -->
     <div class="notion-list">

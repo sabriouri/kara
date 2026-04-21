@@ -65,7 +65,6 @@ export class WellsComponent implements OnInit {
   search        = signal('');
   projectStatus = signal('');
   rdStatus      = signal('');
-  country       = signal('');
 
   showCreateModal = signal(false);
   createLoading   = signal(false);
@@ -124,7 +123,6 @@ export class WellsComponent implements OnInit {
     if (this.search())        p.search        = this.search();
     if (this.projectStatus()) p.projectStatus = this.projectStatus();
     if (this.rdStatus())      p.rdStatus      = this.rdStatus();
-    if (this.country())       p.country       = this.country();
 
     this.wellService.getAll(p).subscribe({
       next: res => {

@@ -46,15 +46,6 @@
       }
     </select>
 
-    <input
-      class="wl-select"
-      type="text"
-      placeholder="Pays…"
-      [value]="country()"
-      (input)="country.set($any($event.target).value); applyFilters()"
-      style="width:120px"
-    />
-
     <div class="wl-limit-wrap">
       <span class="wl-limit-label">Afficher</span>
       @for (l of limitOptions; track l) {
@@ -111,6 +102,14 @@
           <!-- Plaque -->
           @if (w.plaque) {
             <div class="wl-card-plaque">{{ w.plaque }}</div>
+          }
+
+          <!-- Badge multi-puits -->
+          @if (w.donorOrder && w.donorOrder.wellCount > 1) {
+            <div class="wl-multi-badge">
+              <lucide-icon name="layers" [size]="11"></lucide-icon>
+              ×{{ w.donorOrder.wellCount }} puits groupés
+            </div>
           }
 
           <!-- Location -->

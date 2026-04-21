@@ -1,168 +1,322 @@
-<div class="page-content">
+<div class="vir-root">
 
-  <!-- En-tête -->
-  <div class="page-header">
+  <!-- Toast -->
+  @if (toast()) {
+    <div class="vir-toast" [class.vir-toast--error]="toast()!.type === 'error'">
+      <lucide-icon [name]="toast()!.type === 'error' ? 'alert-circle' : 'check-circle'" [size]="15"></lucide-icon>
+      {{ toast()!.msg }}
+    </div>
+  }
+
+  <!-- Header -->
+  <div class="vir-header">
     <div>
-      <h1 class="page-title">Virements bancaires</h1>
-      <p class="text-muted">Import et rapprochement des virements SEPA</p>
+      <h1 class="vir-title">Virements bancaires</h1>
+      <p class="vir-sub">Import et rapprochement des virements SEPA</p>
     </div>
-    <button class="btn btn-primary" (click)="validerSelection()" [disabled]="loading()">
-      <span *ngIf="loading()" class="btn-spinner"></span>
-      Valider la sélection
-    </button>
+    @if (virements().length > 0) {
+      <button class="btn btn-secondary btn-sm" (click)="resetImport()">
+        <lucide-icon name="refresh-cw" [size]="14"></lucide-icon>
+        Nouveau fichier
+      </button>
+    }
   </div>
 
-  <!-- Stats rapides -->
-  <div class="stats-row">
-    <div class="stat-card">
-      <div class="stat-label">Total virements</div>
-      <div class="stat-value">{{ virements().length }}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Montant total</div>
-      <div class="stat-value">{{ totalAmount() | currency:'EUR':'symbol':'1.0-0' }}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Validés</div>
-      <div class="stat-value stat-green">{{ validatedCount() }}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">En attente</div>
-      <div class="stat-value stat-blue">{{ virements().length - validatedCount() }}</div>
-    </div>
-  </div>
-
-  <!-- Zone d'import -->
-  <div class="upload-section">
-    <div
-      class="upload-zone"
-      [class.dragging]="isDragging()"
-      [class.has-file]="selectedFile()"
-      (dragover)="onDragOver($event)"
-      (dragleave)="onDragLeave()"
-      (drop)="onDrop($event)"
-    >
-      <div class="upload-icon">
-        <lucide-icon name="upload-cloud" [size]="40" [strokeWidth]="1.5"></lucide-icon>
+  <!-- Stats bar (only when data loaded) -->
+  @if (virements().length > 0) {
+    <div class="vir-stats-bar">
+      <div class="vir-stat-pill vir-stat-pill--total">
+        <span class="vir-stat-num">{{ stats().total }}</span>
+        <span class="vir-stat-lbl">Total</span>
       </div>
+      <div class="vir-stat-pill vir-stat-pill--pending">
+        <span class="vir-stat-num">{{ stats().pending }}</span>
+        <span class="vir-stat-lbl">À valider</span>
+      </div>
+      <div class="vir-stat-pill vir-stat-pill--validated">
+        <span class="vir-stat-num">{{ stats().validated }}</span>
+        <span class="vir-stat-lbl">Validés</span>
+      </div>
+      <div class="vir-stat-pill vir-stat-pill--skipped">
+        <span class="vir-stat-num">{{ stats().skipped }}</span>
+        <span class="vir-stat-lbl">Ignorés</span>
+      </div>
+      <div class="vir-stat-pill vir-stat-pill--amount">
+        <span class="vir-stat-num">{{ fmtEur(stats().montantValidated) }}</span>
+        <span class="vir-stat-lbl">validé · {{ fmtEur(stats().montantTotal) }} total</span>
+      </div>
+    </div>
+  }
 
-      @if (selectedFile()) {
-        <div class="file-selected">
-          <lucide-icon name="file-spreadsheet" [size]="18"></lucide-icon>
-          <span class="file-name">{{ selectedFile()!.name }}</span>
-          <span class="file-size">{{ (selectedFile()!.size / 1024).toFixed(1) }} Ko</span>
+  <!-- Dropzone (empty state) -->
+  @if (virements().length === 0) {
+    <div class="vir-dropzone"
+      (dragover)="$event.preventDefault()"
+      (drop)="onDrop($event)">
+      @if (loading()) {
+        <div class="vir-dz-loading">
+          <div class="spinner"></div>
+          <span>Analyse du fichier en cours…</span>
         </div>
-        <button class="btn btn-primary" (click)="traiter()">Traiter le fichier</button>
-        <button class="btn btn-secondary btn-sm" (click)="selectedFile.set(null)">Annuler</button>
       } @else {
-        <p class="upload-title">Glissez-déposez votre fichier ici</p>
-        <p class="upload-sub">ou cliquez pour parcourir</p>
-        <label class="btn btn-secondary" style="cursor:pointer;">
+        <lucide-icon name="upload-cloud" [size]="52" [strokeWidth]="1.4" class="vir-dz-icon"></lucide-icon>
+        <p class="vir-dz-title">Glissez un fichier Excel ici</p>
+        <p class="vir-dz-sub">ou cliquez pour parcourir</p>
+        <label class="btn btn-primary vir-dz-btn">
           <lucide-icon name="folder-open" [size]="15"></lucide-icon>
           Choisir un fichier
-          <input type="file" accept=".xlsx,.xls,.csv" (change)="onFileChange($event)" style="display:none;" />
+          <input type="file" accept=".xlsx,.xls,.csv" (change)="onFileChange($event)" style="display:none" />
         </label>
-        <p class="upload-hint">Excel (.xlsx, .xls) ou CSV acceptés</p>
+        <p class="vir-dz-hint">Formats acceptés : .xlsx, .xls</p>
       }
     </div>
-  </div>
+  }
 
-  <!-- Filtres -->
-  <div class="filters">
-    <div class="filter-label">Filtrer par statut :</div>
-    <select class="filter-select" [value]="statusFilter()" (change)="statusFilter.set($any($event.target).value)">
-      @for (opt of statusOptions; track opt.value) {
-        <option [value]="opt.value">{{ opt.label }}</option>
-      }
-    </select>
-    <span class="results-count">{{ filtered().length }} virement(s)</span>
-  </div>
+  <!-- Workspace -->
+  @if (virements().length > 0) {
+    <div class="vir-workspace" [class.vir-workspace--split]="activeV()">
 
-  <!-- Tableau -->
-  @if (loading()) {
-    <div class="loading-wrapper"><div class="spinner"></div></div>
-  } @else if (filtered().length === 0) {
-    <div class="empty-state">
-      <lucide-icon name="inbox" [size]="52" [strokeWidth]="1.2" class="empty-icon"></lucide-icon>
-      <p class="empty-title">Aucun virement à afficher</p>
-      <p class="empty-sub">Importez un fichier Excel ou CSV pour commencer le rapprochement.</p>
-    </div>
-  } @else {
-    <div class="table-wrap">
-      <table class="vir-table">
-        <thead>
-          <tr>
-            <th>Description</th>
-            <th>Montant</th>
-            <th>Date</th>
-            <th>Nom extrait</th>
-            <th>Campagne</th>
-            <th>Contact matché</th>
-            <th>Statut</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
+      <!-- ── Left: list ── -->
+      <div class="vir-list">
+
+        <!-- Filter tabs -->
+        <div class="vir-list-toolbar">
+          <div class="vir-filters">
+            @for (f of ['ALL','PENDING','VALIDATED','SKIPPED']; track f) {
+              <button
+                class="vir-filter"
+                [class.vir-filter--active]="filter() === f"
+                (click)="filter.set($any(f))"
+              >
+                {{ filterLabels[f] }}
+                <span class="vir-filter-count">{{ filterCount(f) }}</span>
+              </button>
+            }
+          </div>
+        </div>
+
+        <!-- Rows -->
+        <div class="vir-table-list">
           @for (v of filtered(); track v.id) {
-            <tr class="vir-row" [class.row-validated]="v.status === 'VALIDATED'" [class.row-skipped]="v.status === 'SKIPPED'">
-              <td class="td-desc">
-                <span class="desc-code">{{ v.description }}</span>
-              </td>
-              <td class="td-amount">
-                {{ v.amount | currency:'EUR':'symbol':'1.0-0' }}
-              </td>
-              <td class="td-date">{{ v.date | date:'dd/MM/yyyy' }}</td>
-              <td class="td-name">
-                <input
-                  type="text"
-                  class="name-input"
-                  [value]="v.nameInput ?? v.extractedName"
-                  (input)="updateName(v, $any($event.target).value)"
-                  [disabled]="v.status === 'VALIDATED' || v.status === 'SKIPPED'"
-                />
-              </td>
-              <td class="td-campaign">
-                <select
-                  class="campaign-select"
-                  [value]="v.selectedCampaign ?? v.suggestedCampaign"
-                  (change)="updateCampaign(v, $any($event.target).value)"
-                  [disabled]="v.status === 'VALIDATED' || v.status === 'SKIPPED'"
-                >
-                  <option value="">-- Campagne --</option>
-                  @for (src of paymentSources(); track src.id) {
-                    <option [value]="src.name">{{ src.name }}</option>
+            <div
+              class="vir-row"
+              [class.vir-row--active]="activeId() === v.id"
+              [class.vir-row--validated]="v.status === 'VALIDATED'"
+              [class.vir-row--skipped]="v.status === 'SKIPPED'"
+              [class.vir-row--matched]="v.status === 'MATCHED'"
+              (click)="selectRow(v)"
+            >
+              <div class="vir-row-main">
+                <div class="vir-row-top">
+                  <span class="vir-row-lib">{{ v.libelle }}</span>
+                  <span class="vir-row-amount">{{ fmtEur(v.montant) }}</span>
+                </div>
+                <div class="vir-row-bot">
+                  <span class="vir-row-date">{{ v.date }}</span>
+                  @if (v.nomExtrait) {
+                    <span class="vir-row-nom">{{ v.nomExtrait }}</span>
                   }
-                  <option [value]="v.suggestedCampaign">{{ v.suggestedCampaign }}</option>
-                </select>
-              </td>
-              <td class="td-contact">
-                @if (v.matchedContact) {
-                  <div class="contact-chip">
-                    <div class="contact-avatar">{{ v.matchedContact.firstName[0] }}{{ v.matchedContact.lastName[0] }}</div>
-                    <div class="contact-info">
-                      <span class="contact-name">{{ v.matchedContact.firstName }} {{ v.matchedContact.lastName }}</span>
-                      <span class="contact-email">{{ v.matchedContact.email }}</span>
-                    </div>
-                  </div>
-                } @else {
-                  <span class="no-contact">–</span>
-                }
-              </td>
-              <td class="td-status">
-                <span [class]="'badge ' + statusClass(v.status)">{{ statusLabel(v.status) }}</span>
-              </td>
-              <td class="td-actions">
-                @if (v.status !== 'VALIDATED' && v.status !== 'SKIPPED') {
-                  <button class="btn btn-secondary btn-sm" (click)="skipVirement(v)" title="Ignorer">
-                    <lucide-icon name="x" [size]="13"></lucide-icon>
-                    Ignorer
+                  @if (v.campagneName) {
+                    <span class="vir-row-camp">{{ v.campagneName }}</span>
+                  }
+                </div>
+              </div>
+              <div class="vir-row-right">
+                <span class="badge" [ngClass]="statusClass(v.status)">{{ statusLabel(v.status) }}</span>
+                @if (v.status === 'PENDING' && v.nomExtrait) {
+                  <button
+                    class="vir-match-btn"
+                    [disabled]="!!matchingId()"
+                    (click)="matchOne(v, $event)"
+                    title="Auto-matcher"
+                  >
+                    @if (matchingId() === v.id) {
+                      <span class="btn-spinner-xs"></span>
+                    } @else {
+                      <lucide-icon name="zap" [size]="12"></lucide-icon>
+                    }
                   </button>
                 }
-              </td>
-            </tr>
+              </div>
+            </div>
+          } @empty {
+            <div class="vir-list-empty">
+              <lucide-icon name="inbox" [size]="36" [strokeWidth]="1.3"></lucide-icon>
+              <span>Aucun virement dans ce filtre</span>
+            </div>
           }
-        </tbody>
-      </table>
+        </div>
+      </div>
+
+      <!-- ── Right: detail panel ── -->
+      @if (activeV()) {
+        <aside class="vir-panel">
+          <div class="vir-panel-header">
+            <h3 class="vir-panel-title">Traitement du virement</h3>
+            <button class="vir-panel-close" (click)="activeId.set(null)">×</button>
+          </div>
+
+          <!-- Recap -->
+          <div class="vir-recap">
+            <div class="vir-recap-amount">{{ fmtEur(activeV()!.montant) }}</div>
+            <div class="vir-recap-lib">{{ activeV()!.libelle }}</div>
+            <div class="vir-recap-meta">
+              <span>{{ activeV()!.date }}</span>
+              @if (activeV()!.compte) {
+                <span class="vir-recap-sep">·</span>
+                <span>{{ activeV()!.compte }}</span>
+              }
+            </div>
+          </div>
+
+          <!-- Contact -->
+          <div class="vir-section">
+            <div class="vir-section-title">
+              <lucide-icon name="user" [size]="13"></lucide-icon>
+              Contact OHME
+            </div>
+
+            @if (activeV()!.ohmeContact) {
+              <div class="vir-contact-ok">
+                <div class="vir-contact-avatar">
+                  {{ activeV()!.ohmeContact!.firstName[0] }}{{ activeV()!.ohmeContact!.lastName[0] }}
+                </div>
+                <div class="vir-contact-info">
+                  <span class="vir-contact-name">
+                    {{ activeV()!.ohmeContact!.firstName }} {{ activeV()!.ohmeContact!.lastName }}
+                  </span>
+                  @if (activeV()!.ohmeContact!.email) {
+                    <span class="vir-contact-email">{{ activeV()!.ohmeContact!.email }}</span>
+                  }
+                  @if (activeV()!.autoMatched) {
+                    <span class="vir-auto-badge">Auto</span>
+                  }
+                </div>
+                <button class="vir-contact-reset" (click)="resetContact()" title="Changer">
+                  <lucide-icon name="x" [size]="13"></lucide-icon>
+                </button>
+              </div>
+
+            } @else if (activeV()!.isNewContact) {
+              <div class="vir-new-form">
+                <div class="vir-new-form-head">
+                  <span>Nouveau contact</span>
+                  <button class="vir-contact-reset"
+                    (click)="updateV(activeV()!.id, { isNewContact: false, status: 'PENDING' })">
+                    <lucide-icon name="x" [size]="13"></lucide-icon>
+                  </button>
+                </div>
+                <div class="vir-form-row">
+                  <input type="text" placeholder="Prénom"
+                    [value]="activeV()!.newContactData.firstName"
+                    (input)="patchNewContact('firstName', $any($event.target).value)" />
+                  <input type="text" placeholder="Nom"
+                    [value]="activeV()!.newContactData.lastName"
+                    (input)="patchNewContact('lastName', $any($event.target).value)" />
+                </div>
+                <input type="email" placeholder="Email (optionnel)"
+                  [value]="activeV()!.newContactData.email"
+                  (input)="patchNewContact('email', $any($event.target).value)" />
+                <input type="tel" placeholder="Téléphone (optionnel)"
+                  [value]="activeV()!.newContactData.phone"
+                  (input)="patchNewContact('phone', $any($event.target).value)" />
+              </div>
+
+            } @else {
+              <div class="vir-search-zone">
+                <div class="vir-search-input-wrap">
+                  <lucide-icon name="search" [size]="14" class="vir-search-icon"></lucide-icon>
+                  <input
+                    type="text"
+                    class="vir-search-input"
+                    placeholder="Rechercher un contact…"
+                    [value]="searchQuery()"
+                    (input)="onSearchChange($any($event.target).value)"
+                  />
+                  @if (searching()) {
+                    <span class="btn-spinner-xs vir-search-spin"></span>
+                  }
+                </div>
+
+                @if (searchResult().length > 0) {
+                  <div class="vir-results">
+                    @for (c of searchResult(); track c.id) {
+                      <div class="vir-result-item" (click)="selectContact(c)">
+                        <div class="vir-result-avatar">{{ c.firstName[0] }}{{ c.lastName[0] }}</div>
+                        <div class="vir-result-info">
+                          <span class="vir-result-name">{{ c.firstName }} {{ c.lastName }}</span>
+                          @if (c.email) {
+                            <span class="vir-result-email">{{ c.email }}</span>
+                          }
+                        </div>
+                        @if (c.confidence === 'high') {
+                          <lucide-icon name="check-circle" [size]="14" class="vir-conf-icon"></lucide-icon>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+
+                <button class="vir-new-contact-btn"
+                  (click)="updateV(activeV()!.id, { isNewContact: true, status: 'NEW_CONTACT' })">
+                  <lucide-icon name="user-plus" [size]="13"></lucide-icon>
+                  Créer un nouveau contact
+                </button>
+              </div>
+            }
+          </div>
+
+          <!-- Campaign -->
+          <div class="vir-section">
+            <div class="vir-section-title">
+              <lucide-icon name="tag" [size]="13"></lucide-icon>
+              Campagne
+            </div>
+            <select class="vir-select"
+              [value]="activeV()!.campagneCode"
+              (change)="updateV(activeV()!.id, {
+                campagneCode: $any($event.target).value,
+                campagneName: getCampaignName($any($event.target).value)
+              })">
+              <option value="">-- Sélectionner une campagne --</option>
+              @for (c of getCampaigns(); track c.code) {
+                <option [value]="c.code">{{ c.name }}</option>
+              }
+            </select>
+          </div>
+
+          <!-- Note -->
+          <div class="vir-section">
+            <div class="vir-section-title">
+              <lucide-icon name="message-square" [size]="13"></lucide-icon>
+              Note interne
+            </div>
+            <textarea class="vir-note" rows="2" placeholder="Commentaire optionnel…"
+              [value]="activeV()!.note"
+              (input)="updateV(activeV()!.id, { note: $any($event.target).value })">
+            </textarea>
+          </div>
+
+          <!-- Actions -->
+          <div class="vir-actions">
+            <button
+              class="vir-btn-validate"
+              [disabled]="submitting() || (!activeV()!.ohmeContact && !activeV()!.isNewContact) || !activeV()!.campagneCode"
+              (click)="validateVirement()"
+            >
+              @if (submitting()) { <span class="btn-spinner"></span> }
+              <lucide-icon name="check" [size]="15"></lucide-icon>
+              Valider le virement
+            </button>
+            <button class="vir-btn-skip" (click)="skipVirement(activeV()!.id)">
+              <lucide-icon name="skip-forward" [size]="14"></lucide-icon>
+              Ignorer
+            </button>
+          </div>
+
+        </aside>
+      }
+
     </div>
   }
 

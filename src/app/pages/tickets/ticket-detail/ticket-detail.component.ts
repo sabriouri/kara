@@ -22,6 +22,7 @@ interface Comment {
   id: string;
   content: string;
   isInternal: boolean;
+  isActivity?: boolean;
   createdAt: string;
   author: TicketUser;
 }
@@ -117,9 +118,13 @@ export class TicketDetailComponent implements OnInit {
 
   loadTicket(id: string): void {
     this.loading.set(true);
-    this.http.get<{ data: Ticket }>(`${this.API}/tickets/${id}`).subscribe({
+    this.notFound.set(false);
+    this.http.get<any>(`${this.API}/tickets/${id}`).subscribe({
       next: res => {
-        this.ticket.set(res.data ?? null);
+        // Supporte { data: ticket } ET ticket directement selon le backend
+        const t = res?.data ?? res;
+        this.ticket.set(t?.id ? t : null);
+        if (!t?.id) this.notFound.set(true);
         this.loading.set(false);
       },
       error: () => {
@@ -131,17 +136,52 @@ export class TicketDetailComponent implements OnInit {
 
   // ── Status quick-action buttons ────────────────────────────────────────────
 
+  readonly statusActivityLabels: Record<string, string> = {
+    EN_ATTENTE: 'Ticket mis en attente.',
+    RESOLU:     'Ticket marqué comme résolu.',
+    FERME:      'Ticket fermé.',
+    EN_COURS:   'Ticket remis en cours.',
+  };
+
   setStatus(newStatus: string): void {
     const t = this.ticket();
     if (!t || t.status === newStatus || this.statusUpdating()) return;
+
+    const prevStatus = t.status;
+
+    // ① Mise à jour optimiste immédiate — le statut change sans attendre l'API
+    this.ticket.set({ ...t, status: newStatus, updatedAt: new Date().toISOString() });
     this.statusUpdating.set(true);
-    this.http.patch<{ data: Ticket }>(`${this.API}/tickets/${t.id}`, { status: newStatus }).subscribe({
-      next: res => {
-        const updated = res.data ?? { ...t, status: newStatus };
-        this.ticket.set(updated);
+
+    this.http.patch<any>(`${this.API}/tickets/${t.id}`, { status: newStatus }).subscribe({
+      next: () => {
+        this.statusUpdating.set(false);
+
+        // ② Commentaire d'activité automatique — ajouté localement sans rechargement
+        const msg = this.statusActivityLabels[newStatus];
+        if (msg) {
+          this.http.post<any>(`${this.API}/tickets/${t.id}/comments`, {
+            content: msg,
+            isInternal: true,
+            isActivity: true,
+          }).subscribe({
+            next: res => {
+              const comment = res?.data ?? res;
+              if (comment?.id) {
+                this.ticket.update(curr =>
+                  curr ? { ...curr, comments: [...(curr.comments ?? []), comment] } : curr
+                );
+              }
+            },
+          });
+        }
+        // Pas de silentRefresh — l'update optimiste reste tel quel
+      },
+      error: () => {
+        // ③ Revert si l'API refuse (404, 403, etc.)
+        this.ticket.set({ ...t, status: prevStatus });
         this.statusUpdating.set(false);
       },
-      error: () => this.statusUpdating.set(false),
     });
   }
 

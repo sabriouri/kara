@@ -2,7 +2,12 @@
 
   <!-- Loading -->
   @if (loading()) {
-    <div class="loading-wrapper"><div class="spinner"></div></div>
+    <div class="detail-loading">
+      <div class="detail-loading-inner">
+        <div class="spinner"></div>
+        <span>Chargement du ticket…</span>
+      </div>
+    </div>
   } @else if (notFound() || !ticket()) {
     <div class="not-found">
       <p>Ticket introuvable.</p>
@@ -71,19 +76,31 @@
           } @else {
             <div class="comments-list">
               @for (c of ticket()!.comments; track c.id) {
-                <div class="comment-item" [class.comment-internal]="c.isInternal">
-                  <div class="comment-avatar">{{ getInitials(c.author) }}</div>
-                  <div class="comment-body">
-                    <div class="comment-meta">
-                      <span class="comment-author">{{ getUserName(c.author) }}</span>
-                      @if (c.isInternal) {
-                        <span class="internal-badge">INTERNE</span>
-                      }
-                      <span class="comment-date">{{ formatDate(c.createdAt) }}</span>
+                @if (c.isActivity) {
+                  <!-- Activity / system entry -->
+                  <div class="activity-entry">
+                    <div class="activity-line"></div>
+                    <div class="activity-dot">
+                      <lucide-icon name="activity" [size]="11"></lucide-icon>
                     </div>
-                    <p class="comment-content">{{ c.content }}</p>
+                    <span class="activity-text">{{ c.content }}</span>
+                    <span class="activity-date">{{ formatDate(c.createdAt) }}</span>
                   </div>
-                </div>
+                } @else {
+                  <div class="comment-item" [class.comment-internal]="c.isInternal">
+                    <div class="comment-avatar">{{ getInitials(c.author) }}</div>
+                    <div class="comment-body">
+                      <div class="comment-meta">
+                        <span class="comment-author">{{ getUserName(c.author) }}</span>
+                        @if (c.isInternal) {
+                          <span class="internal-badge">INTERNE</span>
+                        }
+                        <span class="comment-date">{{ formatDate(c.createdAt) }}</span>
+                      </div>
+                      <p class="comment-content">{{ c.content }}</p>
+                    </div>
+                  </div>
+                }
               }
             </div>
           }
@@ -232,6 +249,13 @@
             <span class="aside-label">Créé le</span>
             <span class="aside-value">{{ formatDateShort(ticket()!.createdAt) }}</span>
           </div>
+
+          @if (ticket()!.updatedAt && ticket()!.updatedAt !== ticket()!.createdAt) {
+            <div class="aside-row">
+              <span class="aside-label">Mis à jour</span>
+              <span class="aside-value aside-updated">{{ formatDateShort(ticket()!.updatedAt) }}</span>
+            </div>
+          }
 
         </div>
 

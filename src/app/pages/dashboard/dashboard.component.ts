@@ -44,10 +44,9 @@ const POLE_QUICK_ACTIONS: Record<string, { label: string; sub: string; path: str
     { label: 'Messagerie',     sub: 'Boîte de réception',   path: '/inbox',           icon: 'mail',          color: '#06b6d4' },
   ],
   marketing: [
-    { label: 'Tickets',    sub: 'Gestion tickets',    path: '/tickets',  icon: 'ticket',        color: '#ef4444' },
-    { label: 'Projets',    sub: 'Suivi projets',      path: '/projects', icon: 'folder-kanban', color: '#3b82f6' },
-    { label: 'Notion',     sub: 'Base connaissance',  path: '/notion',   icon: 'book-open',     color: '#8b5cf6' },
-    { label: 'Messagerie', sub: 'Boîte de réception', path: '/inbox',    icon: 'mail',          color: '#06b6d4' },
+    { label: 'Projets',   sub: 'Suivi projets',     path: '/projects', icon: 'folder-kanban', color: '#3b82f6' },
+    { label: 'Tickets',   sub: 'Gestion tickets',   path: '/tickets',  icon: 'ticket',        color: '#ef4444' },
+    { label: 'Notion',    sub: 'Base connaissance', path: '/notion',   icon: 'book-open',     color: '#8b5cf6' },
   ],
   compta: [
     { label: 'Virements',  sub: 'Gestion virements',  path: '/virements', icon: 'landmark',      color: '#10b981' },
@@ -60,10 +59,9 @@ const POLE_QUICK_ACTIONS: Record<string, { label: string; sub: string; path: str
     { label: 'Notion',     sub: 'Base connaissance',  path: '/notion',   icon: 'book-open',     color: '#8b5cf6' },
   ],
   social: [
-    { label: 'Orphelins',  sub: 'Parrainages',        path: '/orphans',  icon: 'users',         color: '#ec4899' },
-    { label: 'Aqiqas',     sub: 'Sacrifices',         path: '/aqiqas',   icon: 'heart',         color: '#10b981' },
-    { label: 'Tickets',    sub: 'Support',            path: '/tickets',  icon: 'ticket',        color: '#ef4444' },
-    { label: 'Projets',    sub: 'Suivi projets',      path: '/projects', icon: 'folder-kanban', color: '#3b82f6' },
+    { label: 'Projets',   sub: 'Suivi projets',     path: '/projects', icon: 'folder-kanban', color: '#3b82f6' },
+    { label: 'Tickets',   sub: 'Support',           path: '/tickets',  icon: 'ticket',        color: '#ef4444' },
+    { label: 'Notion',    sub: 'Base connaissance', path: '/notion',   icon: 'book-open',     color: '#8b5cf6' },
   ],
 };
 
